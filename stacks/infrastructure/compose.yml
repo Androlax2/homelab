@@ -13,7 +13,7 @@ services:
       - WATCHTOWER_SCHEDULE=0 30 10 * * *
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_NOTIFICATION_REPORT=true
-      - WATCHTOWER_NOTIFICATION_URL=generic://notifiarr.com/api/v1/notification/watchtower/78eb7852-4d2d-40e7-a167-20ab165f3d53?template=json
+      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -33,10 +33,10 @@ services:
         max-file: ${DOCKERLOGGING_MAXFILE}
         max-size: ${DOCKERLOGGING_MAXSIZE}
     env_file:
-      - ${STACK_ENV_FILE}
+      - .env
     volumes:
-      - ${DOCKERCONFDIR}/glance/config:/app/config
-      - ${DOCKERCONFDIR}/glance/assets:/app/assets
+      - ../../config/glance/config:/app/config:ro
+      - ../../config/glance/assets:/app/assets:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "8090:8080"
@@ -56,7 +56,8 @@ services:
     volumes:
       - /volume1/docker/appdata:/srv
       - ${DOCKERCONFDIR}/filebrowser/database:/database
-      - ${DOCKERCONFDIR}/filebrowser/config:/config
+      # Not :ro: the s6 image chowns its mounts at startup and exits on a read-only one.
+      - ../../config/filebrowser/config:/config
     environment:
       - TZ=${TZ}
       - PUID=${PUID}

@@ -120,7 +120,7 @@ services:
       - TZ=${TZ} # timezone, defined in .env
     volumes:
       - ${DOCKERCONFDIR}/prowlarr:/config:rw
-      - ${DOCKERCONFDIR}/prowlarr/mods:/custom-cont-init.d:ro
+      - ../../config/prowlarr/mods:/custom-cont-init.d:ro
 
   prowlarr-postgres:
     container_name: prowlarr-postgres

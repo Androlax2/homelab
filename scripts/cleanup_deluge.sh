@@ -9,7 +9,7 @@ trap 'printf "%s ERREUR FATALE ligne %s (exit code %s)\n" "$(date '\''+%Y-%m-%d 
 #   - c'est une video (.mkv/.mp4/.avi)
 #   - il n'a qu'un seul hardlink (pas importe dans la mediatheque)
 #   - il est plus vieux que MIN_AGE_DAYS  <- protege les imports en cours
-#   - il n'apparait pas dans la queue Sonarr/Radarr (si API configurees)
+#   - il n'apparait pas dans la queue Sonarr/Radarr
 #
 # Matching torrent : on remonte l'arborescence depuis le fichier jusqu'a
 # DOWNLOADS_PATH en essayant chaque nom de dossier (gere les season packs
@@ -32,11 +32,12 @@ DRY_RUN="${DRY_RUN:-0}"
 PURGE_UNMATCHED=1
 PURGE_UNMATCHED_AGE_DAYS=30
 
-# Optionnel : check des queues *arr avant suppression (laisser vide pour desactiver)
+# Check des queues *arr avant suppression. Cles obligatoires (stacks/media/.env) :
+# sans elles, un import en cours pourrait etre supprime.
 SONARR_URL="http://localhost:8989"
-SONARR_API_KEY="e33192dcb05343d3bb9f34f4fc811ba2"
+SONARR_API_KEY="${SONARR_API_KEY:?SONARR_API_KEY manquant (stacks/media/.env)}"
 RADARR_URL="http://localhost:7878"
-RADARR_API_KEY="5a6bf8ba81494abdbda48269052dc987"
+RADARR_API_KEY="${RADARR_API_KEY:?RADARR_API_KEY manquant (stacks/media/.env)}"
 
 # ---------- Helpers ----------
 log()  { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
