@@ -1,0 +1,85 @@
+services:
+
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:release
+    labels:
+      glance.name: "Immich"
+      glance.icon: "sh:immich"
+      glance.description: "Photo Backup & Sharing"
+      glance.category: "photos"
+      glance.id: "immich"
+      glance.url: "http://${LAN_IP}:2283"
+    volumes:
+      - ${DOCKERSTORAGEDIR}/library:/data
+    logging:
+      driver: json-file
+      options:
+        max-file: ${DOCKERLOGGING_MAXFILE}
+        max-size: ${DOCKERLOGGING_MAXSIZE}
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - DB_HOSTNAME=immich-database
+      - DB_PASSWORD=${IMMICH_DB_PASSWORD}
+      - DB_USERNAME=immich
+      - DB_DATABASE_NAME=immich
+      - REDIS_HOSTNAME=immich-redis
+    ports:
+      - '2283:2283'
+    depends_on:
+      - immich-redis
+      - immich-database
+    restart: unless-stopped
+
+  immich-redis:
+    container_name: immich_redis
+    labels:
+      glance.name: "Immich Redis"
+      glance.icon: "sh:redis"
+      glance.description: "Cache & Sessions"
+      glance.category: "photos"
+      glance.parent: "immich"
+    image: docker.io/valkey/valkey:8-bookworm@sha256:fea8b3e67b15729d4bb70589eb03367bab9ad1ee89c876f54327fc7c6e618571
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    logging:
+      driver: json-file
+      options:
+        max-file: ${DOCKERLOGGING_MAXFILE}
+        max-size: ${DOCKERLOGGING_MAXSIZE}
+    healthcheck:
+      test: redis-cli ping || exit 1
+    restart: unless-stopped
+
+  immich-database:
+    container_name: immich_postgres
+    labels:
+      glance.name: "Immich PostgreSQL"
+      glance.icon: "sh:postgresql"
+      glance.description: "Photo Database"
+      glance.category: "photos"
+      glance.parent: "immich"
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:41eacbe83eca995561fe43814fd4891e16e39632806253848efaf04d3c8a8b84
+    logging:
+      driver: json-file
+      options:
+        max-file: ${DOCKERLOGGING_MAXFILE}
+        max-size: ${DOCKERLOGGING_MAXSIZE}
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - POSTGRES_PASSWORD=${IMMICH_DB_PASSWORD}
+      - POSTGRES_USER=immich
+      - POSTGRES_DB=immich
+      - POSTGRES_INITDB_ARGS=--data-checksums
+      - DB_STORAGE_TYPE=HDD
+    volumes:
+      - ${DOCKERCONFDIR}/immich/postgres:/var/lib/postgresql/data
+    shm_size: 128mb
+    restart: unless-stopped
+

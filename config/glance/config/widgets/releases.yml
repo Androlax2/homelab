@@ -1,0 +1,19 @@
+- type: releases
+  title: App Releases
+  cache: 12h
+  show-source-icon: true
+  collapse-after: 6
+  repositories:
+    - glanceapp/glance
+    - immich-app/immich
+    - AdguardTeam/AdGuardHome
+    - Radarr/Radarr
+    - Sonarr/Sonarr
+    - Prowlarr/Prowlarr
+    - seerr-team/seerr
+    - Tautulli/Tautulli
+    - louislam/uptime-kuma
+    - dani-garcia/vaultwarden
+    - filebrowser/filebrowser
+    - maintainerr/maintainerr
+    - kimai/kimai

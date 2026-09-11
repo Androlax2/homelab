@@ -1,0 +1,4 @@
+- type: docker-containers
+  title: "Containers"
+  hide-by-default: false
+  running-only: false

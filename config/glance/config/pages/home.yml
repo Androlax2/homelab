@@ -1,0 +1,17 @@
+- name: Home
+  columns:
+    - size: small
+      widgets:
+        $include: ../widgets/server-stats.yml
+
+    - size: full
+      widgets:
+        $include: ../widgets/services-monitor.yml
+        $include: ../widgets/monitors.yml
+        $include: ../widgets/rss-selfhst.yml
+
+    - size: small
+      widgets:
+        $include: ../widgets/media-server-playing.yml
+        $include: ../widgets/immich-stats.yml
+        $include: ../widgets/releases.yml

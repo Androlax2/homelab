@@ -1,0 +1,17 @@
+- name: Medias
+  columns:
+    - size: small
+      widgets:
+        $include: ../widgets/media-server-playing.yml
+        $include: ../widgets/seerr-trending-discovery.yml
+        $include: ../widgets/prowlarr-indexers.yml
+
+    - size: full
+      widgets:
+        $include: ../widgets/media-monitor.yml
+        $include: ../widgets/media-server-history.yml
+        - type: split-column
+          max-columns: 2
+          widgets:
+            $include: ../widgets/arr-releases.yml
+            $include: ../widgets/arr-releases-sonarr.yml

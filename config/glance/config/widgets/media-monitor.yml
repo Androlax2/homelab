@@ -1,0 +1,33 @@
+- type: monitor
+  title: Media Services
+  cache: 1m
+  sites:
+    - title: Plex
+      url: http://${LAN_IP}:32400/web
+      check-url: http://${LAN_IP}:32400/identity
+      icon: sh:plex
+    - title: Seerr
+      url: http://${LAN_IP}:5055
+      check-url: http://${LAN_IP}:5055/api/v1/status
+      icon: sh:overseerr
+    - title: Radarr
+      url: http://${RADARR_URL}
+      check-url: http://${RADARR_URL}/ping
+      icon: sh:radarr
+    - title: Sonarr
+      url: http://${SONARR_URL}
+      check-url: http://${SONARR_URL}/ping
+      icon: sh:sonarr
+    - title: Prowlarr
+      url: http://${PROWLARR_URL}
+      check-url: http://${PROWLARR_URL}/ping
+      icon: sh:prowlarr
+    - title: Tautulli
+      url: http://${TAUTULLI_URL}
+      icon: sh:tautulli
+    - title: Deluge
+      url: http://${LAN_IP}:8112
+      icon: sh:deluge
+    - title: Maintainerr
+      url: http://${LAN_IP}:6246
+      icon: sh:maintainerr

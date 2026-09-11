@@ -1,0 +1,6 @@
+# Disk % reflects the container filesystem; to show /volume1 instead, bind-mount
+# it read-only into the container and list it under a `mountpoints:` option.
+- type: server-stats
+  servers:
+    - type: local
+      name: Synology NAS

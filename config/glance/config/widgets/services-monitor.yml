@@ -1,0 +1,20 @@
+- type: monitor
+  title: Services
+  cache: 1m
+  sites:
+    - title: Immich
+      url: http://${IMMICH_URL}
+      icon: sh:immich
+    - title: Vaultwarden
+      url: http://${LAN_IP}:8580
+      check-url: http://${LAN_IP}:8580/alive
+      icon: sh:vaultwarden
+    - title: FileBrowser
+      url: http://${LAN_IP}:8095
+      icon: sh:filebrowser
+    - title: Kimai
+      url: http://${LAN_IP}:8010
+      icon: sh:kimai
+    - title: Notifiarr
+      url: http://${LAN_IP}:5454
+      icon: sh:notifiarr

@@ -1,0 +1,14 @@
+theme:
+  disable-picker: true
+  background-color: 240 20 9
+  primary-color: 220 85 72
+  positive-color: 160 75 65
+  negative-color: 331 85 72
+  contrast-multiplier: 1.2
+  text-saturation-multiplier: 0.8
+
+pages:
+  - $include: pages/home.yml
+  - $include: pages/medias.yml
+branding:
+  logo-text: "root@jeancloud:~#"

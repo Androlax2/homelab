@@ -1,0 +1,149 @@
+# Opusline on the NAS. Same stack as compose.prod.yaml, house style:
+# Glance labels, log rotation, bind mounts under ${DOCKERCONFDIR}, one port.
+#
+# Expects in .env, next to the Opusline keys: DOCKERCONFDIR, DOCKERLOGGING_MAXFILE,
+# DOCKERLOGGING_MAXSIZE, TZ, LAN_IP (unused here on purpose — see glance.url).
+name: opusline
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
+x-api: &api
+  image: ghcr.io/opusline/opusline-api:${OPUSLINE_VERSION:-latest}
+  restart: unless-stopped
+  logging: *logging
+  env_file: ${STACK_ENV_FILE}
+  environment:
+    TZ: ${TZ}
+  volumes:
+    - ${DOCKERSTORAGEDIR}/opusline:/app/storage/app
+
+x-api-worker: &api-worker
+  <<: *api
+  depends_on:
+    opusline-api:
+      condition: service_healthy
+  environment:
+    TZ: ${TZ}
+    OPUSLINE_SKIP_MIGRATIONS: "1"
+  healthcheck:
+    test: ["CMD-SHELL", "pgrep -f artisan || exit 1"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+
+services:
+  opusline:
+    container_name: opusline
+    image: ghcr.io/opusline/opusline-web:${OPUSLINE_VERSION:-latest}
+    labels:
+      glance.name: "Opusline"
+      glance.icon: "sh:laravel"
+      glance.description: "Freelance management"
+      glance.category: "productivity"
+      glance.id: "opusline"
+      # The public URL, not http://${LAN_IP}:${HTTP_PORT}: SESSION_DOMAIN and
+      # SESSION_SECURE_COOKIE are bound to the domain, so the LAN address will
+      # load the SPA and then refuse every login.
+      glance.url: "${APP_URL}"
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      opusline-api:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-8790}:80"
+
+  opusline-api:
+    <<: *api
+    container_name: opusline-api
+    # The web image's Caddy proxies /api and /sanctum to the upstream `api`,
+    # the service name in compose.prod.yaml. Keep that name resolvable.
+    networks:
+      default:
+        aliases: [api]
+    labels:
+      glance.name: "Opusline API"
+      glance.icon: "sh:laravel"
+      glance.description: "API"
+      glance.category: "productivity"
+      glance.parent: "opusline"
+    depends_on:
+      opusline-db:
+        condition: service_healthy
+      opusline-redis:
+        condition: service_healthy
+
+  opusline-scheduler:
+    <<: *api-worker
+    container_name: opusline-scheduler
+    labels:
+      glance.name: "Opusline Scheduler"
+      glance.icon: "sh:laravel"
+      glance.description: "URSSAF barème refresh"
+      glance.category: "productivity"
+      glance.parent: "opusline"
+    command: ["php", "artisan", "schedule:work"]
+
+  opusline-queue:
+    <<: *api-worker
+    container_name: opusline-queue
+    labels:
+      glance.name: "Opusline Queue"
+      glance.icon: "sh:laravel"
+      glance.description: "Document processing"
+      glance.category: "productivity"
+      glance.parent: "opusline"
+    command: ["php", "artisan", "queue:work", "--tries=3", "--max-time=3600"]
+
+  opusline-db:
+    container_name: opusline-db
+    image: postgres:18-alpine
+    labels:
+      glance.name: "Opusline Database"
+      glance.icon: "sh:postgresql"
+      glance.description: "Postgres"
+      glance.category: "productivity"
+      glance.parent: "opusline"
+    restart: unless-stopped
+    logging: *logging
+    command: ["postgres", "-c", "log_min_duration_statement=${PG_SLOW_QUERY:-200ms}"]
+    environment:
+      TZ: ${TZ}
+      POSTGRES_DB: ${DB_DATABASE:-opusline}
+      POSTGRES_USER: ${DB_USERNAME:-opusline}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      # /var/lib/postgresql, not .../data — Postgres 18 layout.
+      - ${DOCKERCONFDIR}/opusline/postgres:/var/lib/postgresql
+    # No ports: DSM already owns 5432 for its own Postgres, and nothing outside
+    # the compose network needs this one.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-opusline} -d ${DB_DATABASE:-opusline}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  opusline-redis:
+    container_name: opusline-redis
+    image: redis:8-alpine
+    labels:
+      glance.name: "Opusline Redis"
+      glance.icon: "sh:redis"
+      glance.description: "Sessions, cache, queue"
+      glance.category: "productivity"
+      glance.parent: "opusline"
+    restart: unless-stopped
+    logging: *logging
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ${DOCKERCONFDIR}/opusline/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
