@@ -12,6 +12,7 @@ container never deletes a host folder. The real risks, and the step that handles
 
 | Risk | Handled by |
 |---|---|
+| API keys pushed to GitHub in the first commits | step 0 replaces them before anything else |
 | Variables that only exist in Portainer (removing a stack deletes them) | step 3 backs up Portainer's files; step 4 copies every value into the new env files before anything is removed |
 | A wrong folder makes an app start empty | step 5 compares the running containers with the new ones; step 6 checks each database reused its data |
 | Config files on the NAS newer than the repo's | step 6 compares them, stack by stack |
@@ -26,17 +27,95 @@ remove the others).
 > **Never remove a stack in Portainer after starting it from the repo.** Both use the same Compose project name,
 > so Portainer's "Remove" would stop the new containers.
 
-## 0. Before you start (on your computer)
+## 0. Close the key leak
 
-1. Clean the git history and push. The NAS clones from GitHub, and the first local commit still holds old API keys.
-   ```sh
-   git update-ref -d HEAD && git add -A && git commit -m "Initial homelab setup"
-   git grep -nE 'e33192dc|5a6bf8ba|78eb7852' $(git rev-list --all) || echo "history clean"
-   git push -u origin main
-   ```
-   The second command must print `history clean`.
-2. Make sure DSM can email you (Control Panel → Notification → Email → send a test message). The deploy job reports
-   failures by email.
+The first commits pushed to GitHub (`63259e9`) contained the Sonarr API key, the Radarr API key and the Notifiarr API
+key, in a public repo. Treat all three as known to anyone. New keys make the old ones useless, and that is the actual
+fix; rewriting the history afterwards only stops displaying them.
+
+Do this before the rest: step 4 copies the keys from Portainer, so Portainer must hold the new ones by then. The
+commands of this step run on your computer, in the repo; they work in fish and bash.
+
+### 0.1 Hide the repo while you fix it
+
+```sh
+gh repo edit Androlax2/homelab --visibility private --accept-visibility-change-consequences
+```
+
+### 0.2 Disable the Deluge cleanup task
+
+In DSM: Control Panel → Task Scheduler → select the Deluge cleanup task → untick its "Enabled" box → OK.
+
+The copy of the script the NAS runs today ignores failed Sonarr/Radarr calls: with new keys, it would delete
+torrents without checking the import queues. It stays disabled until step 7.3.
+
+### 0.3 New Sonarr and Radarr API keys
+
+1. In Sonarr: Settings → General → Security → API Key → click the regenerate icon next to the key → Save Changes.
+   Do the same in Radarr. Keep both new keys at hand for the next point.
+2. Give the new keys to everything that calls Sonarr or Radarr:
+   - Prowlarr: Settings → Apps → Sonarr, then Radarr → API Key → Test → Save.
+   - Seerr: Settings → Services → the Sonarr server, then the Radarr server → API Key → Test → Save.
+   - Maintainerr: Settings → Sonarr, then Radarr → API key → Save.
+   - Notifiarr client (`http://<NAS IP>:5454`): its Sonarr and Radarr entries → API key → Save.
+   - The dashboard: Portainer → Stacks → the stack that runs `glance` → Editor → Environment variables →
+     `SONARR_API_KEY` and `RADARR_API_KEY` → Update the stack.
+   - Any phone or desktop app you use with Sonarr or Radarr.
+
+### 0.4 New Notifiarr API key
+
+The ID at the end of the old Watchtower notification URL was your Notifiarr API key.
+
+1. On notifiarr.com, in your profile's API keys, create a new key and delete the old one.
+2. Put the new key wherever the old one was:
+   - the Notifiarr client: its web UI (`http://<NAS IP>:5454`), or `api_key` in the `notifiarr.conf` of its config
+     folder; then restart it from the NAS: `docker restart notifiarr`;
+   - Sonarr, Radarr and Prowlarr, if they have a Notifiarr connection (Settings → Connect; Settings → Notifications
+     in Prowlarr);
+   - not Watchtower: it is removed during the migration.
+
+### 0.5 Check the old keys are refused
+
+These read the old keys from the leaked commit, which is still in your local copy, and never print them:
+
+```sh
+git show 63259e9:scripts/cleanup_deluge.sh | sed -n 's/^SONARR_API_KEY="\(.*\)"$/X-Api-Key: \1/p' | curl -s -o /dev/null -w 'Sonarr, old key: %{http_code}\n' -H @- http://<NAS IP>:8989/api/v3/system/status
+git show 63259e9:scripts/cleanup_deluge.sh | sed -n 's/^RADARR_API_KEY="\(.*\)"$/X-Api-Key: \1/p' | curl -s -o /dev/null -w 'Radarr, old key: %{http_code}\n' -H @- http://<NAS IP>:7878/api/v3/system/status
+```
+
+Both must print `401`. `200` means that app still accepts the old key: redo its part of 0.3. `000` means the NAS
+didn't answer: check the IP. For Notifiarr, the old key must be gone from your key list on notifiarr.com.
+
+### 0.6 Replace GitHub's history with the clean commit
+
+```sh
+git status --short
+```
+
+If it lists files (this runbook update, for example), commit them first:
+`git add -A && git commit -m "Document the key rotation"`. Then:
+
+```sh
+git push --force-with-lease=main:e07458481ef6c4d2008a14fe902b38a004c78317 origin main
+git merge-base --is-ancestor 63259e99c9daf36225cc7ab83924bcfcf325f9c5 origin/main && echo "LEAKED COMMIT STILL ON main" || echo "history clean"
+```
+
+- The push only replaces GitHub's `main` if it is still the commit that was checked (`e074584`). If it refuses,
+  something pushed in the meantime: look at `git log origin/main` before trying again.
+- The last command must print `history clean`.
+- GitHub may keep serving the old commit to anyone who has its link for a while. Its guide "Removing sensitive data
+  from a repository" explains how to ask GitHub Support to purge it; with the keys replaced, that's optional.
+
+### 0.7 Make the repo public again
+
+```sh
+gh repo edit Androlax2/homelab --visibility public --accept-visibility-change-consequences
+```
+
+### 0.8 Email
+
+Make sure DSM can email you (Control Panel → Notification → Email → send a test message). The deploy job reports
+failures by email.
 
 ## 1. Open a root shell on the NAS
 
@@ -120,7 +199,8 @@ The last command must print Portainer's data folder (something like `/volume1/do
 docker stop watchtower
 ```
 
-In DSM: Control Panel → Task Scheduler → select the Deluge cleanup task → untick its "Enabled" box → OK.
+The Deluge cleanup task has been disabled since step 0.2: check in DSM (Control Panel → Task Scheduler) that its
+"Enabled" box is still unticked.
 
 ### 3.2 Back up Portainer's stack files and the current container settings
 
@@ -208,7 +288,8 @@ The last command must print `4`.
 
 ### 4.3 media
 
-The two API keys for the cleanup script come from the infrastructure stack's variables, the rest from media's.
+The two API keys for the cleanup script come from the infrastructure stack's variables (the new keys you set there in
+step 0.3), the rest from media's.
 
 ```sh
 fill_env stacks/media/.env.example stacks/media/.env "$(portainer_env_of sonarr)" "$(portainer_env_of glance)"
