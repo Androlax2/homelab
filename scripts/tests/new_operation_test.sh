@@ -54,7 +54,17 @@ test_refuses_a_description_without_letters_or_digits() {
     [ ! -d "$repo_dir/operations" ] || [ -z "$(ls -A "$repo_dir/operations")" ] || { echo "      no file should be created"; return 1; }
 }
 
+test_before_creates_an_operation_that_runs_before_the_stacks() {
+    local created
+    created=$(new_operation --before "Create the recyclarr folder")
+    [[ "$created" =~ ^operations/[0-9]{4}_[0-9]{2}_[0-9]{2}_[0-9]{6}_create_the_recyclarr_folder\.before\.sh$ ]] \
+        || { echo "      unexpected file name: $created"; return 1; }
+    grep -q 'right after the pull, before any container changes' "$repo_dir/$created" \
+        || { echo "      the header must say when it runs"; return 1; }
+}
+
 run_test "it creates a timestamped, executable operation named after the description" in_sandbox test_creates_a_timestamped_executable_file
+run_test "--before creates a .before.sh operation that says it runs before the stacks" in_sandbox test_before_creates_an_operation_that_runs_before_the_stacks
 run_test "it keeps the description at the top of the file" in_sandbox test_keeps_the_description_in_the_file
 run_test "the untouched template runs as a no-op" in_sandbox test_the_untouched_template_runs_as_a_no_op
 run_test "it refuses a description without letters or digits" in_sandbox test_refuses_a_description_without_letters_or_digits

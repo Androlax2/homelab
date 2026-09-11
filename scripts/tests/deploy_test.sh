@@ -242,6 +242,31 @@ test_failed_operation_holds_the_commit_until_it_passes() {
     grep -qx '2026_01_01_000000_flaky.sh' "$sandbox/nas/.operations-done" || { echo "      expected the operation to be recorded"; return 1; }
 }
 
+test_before_operation_runs_before_the_stacks() {
+    run_deploy
+    forget_docker_calls
+    printf 'edit\n' >> "$sandbox/dev/stacks/media/compose.yml"
+    git -C "$sandbox/dev" commit --quiet -am "edit media"
+    push_operation 2026_01_01_000000_prepare.before.sh 'docker operation-before-ran'
+    run_deploy
+    assert_docker_calls "operation-before-ran
+$(compose_up_call media)"
+}
+
+test_failed_before_operation_changes_no_container() {
+    run_deploy
+    forget_docker_calls
+    export FLAKY_MARKER="$sandbox/flaky-can-pass"
+    printf 'edit\n' >> "$sandbox/dev/stacks/media/compose.yml"
+    git -C "$sandbox/dev" commit --quiet -am "edit media"
+    push_operation 2026_01_01_000000_prepare.before.sh '[ -f "$FLAKY_MARKER" ]'
+    expect_deploy_failure_mentioning "operation 2026_01_01_000000_prepare.before.sh failed"
+    assert_docker_calls ""
+    touch "$FLAKY_MARKER"
+    run_deploy
+    assert_docker_calls "$(compose_up_call media)"
+}
+
 run_test "it deploys every stack and restarts every config container on the first run" in_sandbox test_first_run_deploys_everything
 run_test "it does nothing when main has not moved" in_sandbox test_unchanged_main_does_nothing
 run_test "it only redeploys the stack whose files changed" in_sandbox test_stack_change_redeploys_only_that_stack
@@ -254,5 +279,7 @@ run_test "it holds back every stack while common.env lacks a key from common.env
 run_test "it runs a new one-time operation after bringing the stacks up" in_sandbox test_operation_runs_after_the_stacks
 run_test "it runs a one-time operation only once" in_sandbox test_operation_runs_only_once
 run_test "a failing one-time operation holds the commit back until it passes" in_sandbox test_failed_operation_holds_the_commit_until_it_passes
+run_test "it runs a .before.sh operation before bringing the stacks up" in_sandbox test_before_operation_runs_before_the_stacks
+run_test "a failing .before.sh operation changes no container, and is retried" in_sandbox test_failed_before_operation_changes_no_container
 
 finish_tests

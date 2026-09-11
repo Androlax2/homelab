@@ -7,9 +7,10 @@ Docker Compose setup for my Synology NAS. `main` is what runs: the NAS pulls it 
 `scripts/deploy.sh` (root, every 5 minutes) fast-forwards the NAS checkout to `origin/main`, then, for what changed
 since the last deployed commit (`.last-deployed`):
 
+- first the `*.before.sh` [one-time operations](#one-time-operations) not run yet
 - `stacks/<stack>/…` → `scripts/compose.sh <stack> up -d --remove-orphans`
 - `config/<name>/…` → `docker restart <name>`
-- then the [one-time operations](#one-time-operations) not run yet
+- then the other one-time operations not run yet
 
 A failure leaves the commit unmarked, so the next run retries it and DSM emails the output. A deleted stack is never
 torn down automatically: the run prints the `docker compose -p <stack> down` to run.
@@ -64,13 +65,15 @@ within 5 minutes. Both Opusline images update together. The Dependency Dashboard
 For commands that must run once on the NAS (fix a database, move a folder), like Laravel's one-time operations:
 
 ```sh
-scripts/new_operation.sh "reset immich password"    # creates operations/<timestamp>_reset_immich_password.sh
+scripts/new_operation.sh "reset immich password"             # runs after the stacks are updated
+scripts/new_operation.sh --before "create the foo folder"    # runs right after the pull, before any container changes
 ```
 
-Write the commands (container commands through `scripts/compose.sh <stack> exec -T …`), push. After the next deploy
-has updated the stacks, the NAS runs it as root from the repo root, in file name order, and records it in
-`.operations-done`. It never runs again, even if edited. A failing one blocks the deploy and is retried.
-`sudo scripts/run_operations.sh --list` shows what ran.
+Write the commands (container commands through `scripts/compose.sh <stack> exec -T …`), push. The next deploy runs
+it once, as root from the repo root, in file name order: `*.before.sh` operations before the env files are checked
+and before any container changes (to prepare a folder or a missing `.env` key), the others after the stacks are
+updated. It is then recorded in `.operations-done` and never runs again, even if edited. A failing one blocks the
+deploy and is retried. `sudo scripts/run_operations.sh --list` shows what ran.
 
 ## Sonarr and Radarr settings
 
@@ -101,7 +104,7 @@ into Sonarr and Radarr every night, overwriting UI changes to what it manages.
 | `deploy.sh` | the 5-minute deploy (DSM Task Scheduler, root) |
 | `compose.sh <stack> …` | `docker compose` with the stack's env files |
 | `edit_env.sh <stack>\|common` | edit settings and secrets on the NAS |
-| `new_operation.sh`, `run_operations.sh` | one-time operations (`--list`, `--mark-all-done`) |
+| `new_operation.sh`, `run_operations.sh` | one-time operations (`--before`/`--after`, `--list`, `--mark-all-done`) |
 | `premigration_check.sh <stack>` | compare running containers with the compose file before replacing them |
 | `cleanup_deluge.sh` | remove orphaned torrents (scheduled; reads its API keys from `stacks/media/.env`, `DRY_RUN=1` to simulate) |
 | `backup_databases.sh <folder>` | nightly database dumps (see Backups) |
