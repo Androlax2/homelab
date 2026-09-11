@@ -138,6 +138,7 @@ create: mounts, Docker volumes, environment variable names, image versions.
 | `check_stacks.sh` | anywhere, CI | validates every stack against the `.env.example` files and the privilege rules |
 | `check_glance_config.sh` | anywhere, CI | validates `config/glance` with the pinned Glance image (pulls it) |
 | `lib.sh` | sourced by the others | shared helpers |
+| `migration_helpers.sh` | server, sourced, once | helpers used by the Portainer migration runbook |
 
 ## Tests and CI
 
