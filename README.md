@@ -95,12 +95,19 @@ the hash in single quotes. The password went through your shell: clear it from t
 
 ## Updating apps
 
-- Renovate opens one pull request per image or GitHub Action update. Read the linked release notes, merge, and the
-  server deploys within 5 minutes.
-- Some updates are held back on purpose in `renovate.json`: Postgres major versions (they need a dump/restore) and
-  Immich's own database and cache images (follow Immich's release notes).
+- Renovate opens one pull request per image or GitHub Action update, and merges it itself once CI passes; the
+  server deploys it within 5 minutes. Nothing to click. Both Opusline images (`stacks/opusline/compose.yml`)
+  always move together, in one pull request.
+- The Dependency Dashboard issue on GitHub lists every dependency Renovate found, what it updated and what waits.
+- CI only checks the configuration, not that the new version works: an update that breaks an app is deployed
+  anyway. You find out from the app, then roll back (below) or wait for a fixed release.
+- Some updates are never proposed, on purpose (`renovate.json`): Postgres major versions (they need a
+  dump/restore) and Immich's own database and cache images (follow Immich's release notes).
 - Roll back with `git revert` and push. The previous image comes back, but an app that already migrated its
-  database may refuse to start on an older version. Check the app's docs before reverting a major update.
+  database may refuse to start on an older version: check the app's docs before reverting a major update. In the
+  same commit, stop Renovate from bringing the bad version straight back, or it will automerge it again: add a
+  rule to `renovate.json`, e.g. `{"matchPackageNames": ["vaultwarden/server"], "allowedVersions": "<1.38.0"}`.
+  Remove the rule once a fixed release is out.
 
 ## One-time operations
 
@@ -179,9 +186,11 @@ CI (`.github/workflows/validate.yml`) runs all of it on every push and pull requ
 
 ## Security
 
-- Anyone who can push to `main` runs code as root on the server within 5 minutes. Keep 2FA on the GitHub account,
-  never enable Renovate automerge, and protect `main` so every change goes through a pull request whose checks
-  pass (you can still merge your own):
+- Anyone who can push to `main` runs code as root on the server within 5 minutes. Renovate merges updates by
+  itself, so whoever publishes one of the images (Docker Hub, ghcr.io, lscr.io) or GitHub Actions used here
+  effectively deploys to the server too: an update is only as trustworthy as its publisher.
+- Keep 2FA on the GitHub account, and protect `main` so every change goes through a pull request whose checks
+  pass (you can still merge your own, and Renovate still merges its green pull requests):
   ```sh
   gh api -X PUT repos/Androlax2/homelab/branches/main/protection --input - <<'JSON'
   {

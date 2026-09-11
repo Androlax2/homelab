@@ -1,7 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "automerge": true,
   "packageRules": [
+    {
+      "description": "opusline-web and opusline-api must run the same version: one pull request for both",
+      "matchPackageNames": ["ghcr.io/opusline/opusline-web", "ghcr.io/opusline/opusline-api"],
+      "groupName": "Opusline"
+    },
     {
       "description": "LinuxServer tags: <app version>.<build>-ls<image revision>",
       "matchPackageNames": ["lscr.io/linuxserver/sonarr", "lscr.io/linuxserver/radarr", "lscr.io/linuxserver/prowlarr"],

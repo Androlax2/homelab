@@ -17,9 +17,8 @@ source "$REPO_DIR/scripts/lib.sh"
 DOCKER_SOCKET_SERVICES="portainer docker-socket-proxy"
 
 # Values the example files leave empty but compose can't accept empty: an empty DOCKERSTORAGEDIR
-# turns "${DOCKERSTORAGEDIR}:/data" into an invalid ":/data", and OPUSLINE_VERSION is required.
+# turns "${DOCKERSTORAGEDIR}:/data" into an invalid ":/data".
 export DOCKERCONFDIR=/check/config DOCKERSTORAGEDIR=/check/storage FILEBROWSER_ROOT=/check/filebrowser
-export OPUSLINE_VERSION=check
 
 # Prints one line per service that breaks the privilege rules above.
 privilege_violations() {

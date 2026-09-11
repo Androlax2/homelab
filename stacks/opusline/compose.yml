@@ -2,7 +2,10 @@
 # Glance labels, log rotation, bind mounts under ${DOCKERCONFDIR}, one port.
 #
 # Server-wide values (DOCKERCONFDIR, DOCKERSTORAGEDIR, DOCKERLOGGING_*, TZ) come from
-# stacks/common.env, the Opusline keys and OPUSLINE_VERSION from stacks/opusline/.env.
+# stacks/common.env, the Opusline keys from stacks/opusline/.env.
+#
+# opusline-web and opusline-api must run the same version: Renovate updates both
+# together (group "Opusline" in renovate.json).
 name: opusline
 
 x-logging: &logging
@@ -12,7 +15,7 @@ x-logging: &logging
     max-size: ${DOCKERLOGGING_MAXSIZE}
 
 x-api: &api
-  image: ghcr.io/opusline/opusline-api:${OPUSLINE_VERSION:?Set OPUSLINE_VERSION in stacks/opusline/.env}
+  image: ghcr.io/opusline/opusline-api:0.23.0
   restart: unless-stopped
   logging: *logging
   env_file: .env
@@ -38,7 +41,7 @@ x-api-worker: &api-worker
 services:
   opusline:
     container_name: opusline
-    image: ghcr.io/opusline/opusline-web:${OPUSLINE_VERSION:?Set OPUSLINE_VERSION in stacks/opusline/.env}
+    image: ghcr.io/opusline/opusline-web:0.23.0
     labels:
       glance.name: "Opusline"
       glance.icon: "/assets/opusline.svg"
