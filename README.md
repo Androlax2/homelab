@@ -1,234 +1,131 @@
 # homelab
 
-Docker Compose setup for my home server. The `main` branch is the source of truth: the server checks it every
-5 minutes and applies whatever changed.
+Docker Compose setup for my Synology NAS. `main` is what runs: the NAS pulls it every 5 minutes.
 
-## How it works
+## How a push reaches the NAS
 
-```mermaid
-flowchart LR
-    you[push or merge to main] --> github[(GitHub main)]
-    github --> ci[CI: validate + secret scan]
-    timer[every 5 min] --> deploy[scripts/deploy.sh on the server]
-    github -- git fetch --> deploy
-    deploy -- "stacks/&lt;stack&gt;/ changed" --> up[scripts/compose.sh &lt;stack&gt; up -d]
-    deploy -- "config/&lt;name&gt;/ changed" --> restart[docker restart &lt;name&gt;]
-```
+`scripts/deploy.sh` (root, every 5 minutes) fast-forwards the NAS checkout to `origin/main`, then, for what changed
+since the last deployed commit (`.last-deployed`):
 
-1. A change lands on `main`: your own commit, or a merged pull request such as a Renovate update.
-2. CI checks the compose files, the Glance config and the scripts, and scans for secrets. The server does **not**
-   wait for CI: protect `main` so that only green pull requests land (see [Security](#security)).
-3. On the server, `scripts/deploy.sh` runs as root every 5 minutes. It fast-forwards its checkout to `origin/main`,
-   lists the files changed since the last deployed commit (stored in `.last-deployed`), then:
-   - `stacks/<stack>/…` changed → `up -d --remove-orphans` for that stack. Compose recreates only the containers
-     whose definition changed and pulls new image versions itself.
-   - `config/<name>/…` changed → `docker restart <name>`.
-   - then it runs the [one-time operations](#one-time-operations) this server hasn't run yet.
-4. If a step fails, the commit is not marked as deployed: the next run tries again, and the scheduler reports the
-   failure. A stack deleted from the repo is never torn down automatically; the run fails once and prints the
-   command to run.
+- `stacks/<stack>/…` → `scripts/compose.sh <stack> up -d --remove-orphans`
+- `config/<name>/…` → `docker restart <name>`
+- then the [one-time operations](#one-time-operations) not run yet
+
+A failure leaves the commit unmarked, so the next run retries it and DSM emails the output. A deleted stack is never
+torn down automatically: the run prints the `docker compose -p <stack> down` to run.
 
 ## Layout
 
 ```
-stacks/common.env.example     variables every stack shares (paths, time zone, user, LAN IP), without values
-stacks/common.env             their values, on the server only (gitignored)
-stacks/<stack>/compose.yml    one Compose project per folder, named after the folder
-stacks/<stack>/.env.example   the stack's own variables, without values (absent when it has none)
-stacks/<stack>/.env           their values, on the server only (gitignored)
-config/<name>/                files mounted into the container named <name>
-operations/                   one-time commands each server runs once, after a deploy
-scripts/                      deploy and maintenance scripts (see Scripts)
-scripts/tests/                tests for the scripts
-renovate.json                 image update rules
-.github/workflows/            CI
-docs/                         one-off runbooks and audits
+stacks/<stack>/compose.yml     one Compose project per folder
+stacks/<stack>/.env.example    the stack's variables (absent when it only uses common ones)
+stacks/common.env.example      variables shared by every stack
+config/<name>/                 files mounted into the container named <name>
+operations/                    one-time scripts, see below
+scripts/                       deploy and maintenance scripts, tests in scripts/tests/
 ```
 
-## Conventions
+The real `stacks/common.env` and `stacks/<stack>/.env` exist only on the NAS (gitignored, mode 600).
 
-The scripts rely on these. Breaking one makes something stop working, usually silently.
+## Rules the scripts rely on
 
-- **Run Compose through `scripts/compose.sh <stack> …`.** It passes `stacks/common.env` and the stack's `.env`.
-  A plain `docker compose -f stacks/<stack>/compose.yml …` doesn't, and every `${VAR}` becomes empty.
-- **Every service has a `container_name`.** Config folders are named after it, and `premigration_check.sh` uses it
-  to find running containers.
-- **`config/<name>/` belongs to the container `<name>`.** It is mounted from the checkout with a relative path
-  (`../../config/<name>/…`), read-only when the app allows it. Any change in it restarts that container.
-- **App data never lives in the repo or in a Docker volume.** Databases and app state go in host folders under
-  `${DOCKERCONFDIR}` or `${DOCKERSTORAGEDIR}`. A Docker volume's data does not follow a container that gets
-  recreated; a host folder does.
-- **Every `${VAR}` a compose file uses is listed in `stacks/common.env.example` or in the stack's `.env.example`.**
-  CI fails otherwise.
-- **Images are pinned to an exact version.** No `latest`: what runs is what the repo says.
-- **Nothing runs privileged, and only Portainer and the Docker socket proxy mount the Docker socket.** Whoever holds
-  the socket is root on the server. CI enforces it; the allowlist is `DOCKER_SOCKET_SERVICES` in
-  `scripts/check_stacks.sh`. A container that needs Docker information goes through the proxy, like Glance does.
+- Run Compose through `scripts/compose.sh <stack> …`: plain `docker compose` doesn't load the env files.
+- Every service has a `container_name`, and `config/<name>/` is named after it.
+- App data lives in host folders (`${DOCKERCONFDIR}`, `${DOCKERSTORAGEDIR}`), never in the repo or a Docker volume.
+- Every `${VAR}` used in a compose file is listed in an `.env.example` (CI checks it; the deploy refuses a stack whose
+  `.env` lacks a listed key).
+- Images are pinned to exact versions.
+- Only `portainer` and `docker-socket-proxy` may mount the Docker socket, and nothing runs privileged (CI checks it;
+  allowlist in `scripts/check_stacks.sh`).
 
-## Secrets and settings
+## Settings and secrets
 
-- Values live on the server, never in git, in two kinds of files (mode 600):
-  - `stacks/common.env`: what every stack shares (folders, time zone, user, LAN IP).
-  - `stacks/<stack>/.env`: the stack's own values, secrets included.
-- Each `.env.example` is the list of keys its file must define, with a hint when the format isn't obvious. The
-  deploy refuses to touch a stack while a key is missing, rather than start it with an empty value.
-- Change them on the server with `sudo scripts/edit_env.sh <stack>` or `sudo scripts/edit_env.sh common`. It opens a
-  copy in `$EDITOR`, checks every key is present and that Compose accepts every affected stack, then saves (the old
-  file is kept as `<file>.previous`) and redeploys: that stack, or every stack for `common`. Only containers whose
-  configuration changed are restarted.
-- Wrap values that contain `$` (password hashes) in single quotes.
-- A secret that reaches git is public, even if a later commit removes it: rotate it. gitleaks scans every push and
-  pull request.
-
-## Dashboard login
-
-Glance asks for a login. Generate its values once with the pinned Glance image:
+Edit them on the NAS, never in git:
 
 ```sh
-glance_image=$(awk '$1 == "image:" && $2 ~ /^glanceapp\/glance:/ { print $2 }' stacks/infrastructure/compose.yml)
-docker run --rm --entrypoint /app/glance "$glance_image" secret:make                   # GLANCE_SECRET_KEY
-docker run --rm --entrypoint /app/glance "$glance_image" password:hash 'your password'  # GLANCE_PASSWORD_HASH
+sudo scripts/edit_env.sh <stack>    # or: common
 ```
 
-Then `sudo scripts/edit_env.sh infrastructure`: set `GLANCE_USERNAME` (3 characters or more) and paste both values,
-the hash in single quotes. The password went through your shell: clear it from the history.
+It validates the file, keeps the old one as `.previous`, and redeploys what it affects. Single-quote values
+containing `$` (password hashes).
 
-## Updating apps
+## Updates
 
-- Renovate opens one pull request per image or GitHub Action update, and merges it itself once CI passes; the
-  server deploys it within 5 minutes. Nothing to click. Both Opusline images (`stacks/opusline/compose.yml`)
-  always move together, in one pull request.
-- The Dependency Dashboard issue on GitHub lists every dependency Renovate found, what it updated and what waits.
-- CI only checks the configuration, not that the new version works: an update that breaks an app is deployed
-  anyway. You find out from the app, then roll back (below) or wait for a fixed release.
-- Some updates are never proposed, on purpose (`renovate.json`): Postgres major versions (they need a
-  dump/restore) and Immich's own database and cache images (follow Immich's release notes).
-- Roll back with `git revert` and push. The previous image comes back, but an app that already migrated its
-  database may refuse to start on an older version: check the app's docs before reverting a major update. In the
-  same commit, stop Renovate from bringing the bad version straight back, or it will automerge it again: add a
-  rule to `renovate.json`, e.g. `{"matchPackageNames": ["vaultwarden/server"], "allowedVersions": "<1.38.0"}`.
-  Remove the rule once a fixed release is out.
+Renovate opens a pull request per image or GitHub Action update and merges it once CI passes; the NAS deploys it
+within 5 minutes. Both Opusline images update together. The Dependency Dashboard issue shows what's pending.
+
+- Never proposed, on purpose: Postgres major versions and Immich's database/cache images (see `renovate.json`).
+- CI checks the configuration, not the app: a broken release still deploys.
+- To roll back, `git revert`, and in the same commit block the version in `renovate.json`
+  (`{"matchPackageNames": ["<image>"], "allowedVersions": "<x.y.z"}`), or Renovate merges it again.
 
 ## One-time operations
 
-For commands that must run once on the server, not at every deploy: fix a database, move a folder, clean
-something up after an update. The same idea as Laravel's one-time operations.
+For commands that must run once on the NAS (fix a database, move a folder), like Laravel's one-time operations:
 
-1. Create one: `scripts/new_operation.sh "reset immich password"` writes
-   `operations/<timestamp>_reset_immich_password.sh` from a template.
-2. Write its commands. Commands inside a container go through `scripts/compose.sh <stack> exec -T …`.
-3. Push. After the next deploy has updated the stacks, the server runs it, as root, from the repo root.
+```sh
+scripts/new_operation.sh "reset immich password"    # creates operations/<timestamp>_reset_immich_password.sh
+```
 
-The rules:
-- Operations run in file name order, so in the order they were created.
-- Each server records the ones that succeeded in `.operations-done` (gitignored). A recorded operation never runs
-  again, even if its file changes: write a new operation instead.
-- A failing operation stops the deploy, and the commit is not marked as deployed. The operation runs again on the
-  next deploy (5 minutes later), and the ones after it wait. Fix it by pushing a corrected version (it isn't
-  recorded yet, so the new version is what runs) or by deleting it.
-- Operations get no input: they must not ask questions.
-- `sudo scripts/run_operations.sh --list` shows which ones this server has run.
-
-## Common tasks
-
-**Look at a stack.** `sudo scripts/compose.sh <stack> ps`, `sudo scripts/compose.sh <stack> logs -f <service>`.
-
-**Change a setting.** Edit the compose file or the file under `config/`, push.
-
-**Add a variable.** Add it to `compose.yml` and to the stack's `.env.example` (or to `stacks/common.env.example`
-if every stack needs it), push, then set its value on the server with `sudo scripts/edit_env.sh <stack>` (or
-`common`). Until the value exists, the deploy waits and reports the missing key.
-
-**Add a stack.**
-1. Create `stacks/<stack>/compose.yml`: a `container_name` on every service, pinned images, log rotation through
-   an `x-logging` anchor like the other stacks.
-2. If the stack has variables of its own, list them in `stacks/<stack>/.env.example`.
-3. Put files the containers need under `config/<container_name>/`.
-4. Push. If the stack has an `.env.example`, the deploy reports that its `.env` is missing:
-   `sudo scripts/edit_env.sh <stack>` creates it and starts the stack.
-
-**Remove a stack.** Delete its folder and push. The next deploy prints `docker compose -p <stack> down`: run it
-when you are ready. Data folders are left alone.
-
-**Replace containers started some other way** (another tool, an old compose file): run
-`sudo scripts/premigration_check.sh <stack>` first. It compares the running containers with what the stack would
-create: mounts, Docker volumes, environment variable names, image versions.
+Write the commands (container commands through `scripts/compose.sh <stack> exec -T …`), push. After the next deploy
+has updated the stacks, the NAS runs it as root from the repo root, in file name order, and records it in
+`.operations-done`. It never runs again, even if edited. A failing one blocks the deploy and is retried.
+`sudo scripts/run_operations.sh --list` shows what ran.
 
 ## Scripts
 
-| Script | Where and when | What it does |
-|---|---|---|
-| `deploy.sh` | server, scheduler, root | pulls `main` and redeploys what changed |
-| `compose.sh <stack> …` | server, by hand and from the other scripts | `docker compose` with the stack's env files |
-| `edit_env.sh <stack>\|common` | server, by hand | edits settings and secrets, validates, redeploys |
-| `run_operations.sh` | server, from `deploy.sh` | runs the one-time operations not run yet; `--list`, `--mark-all-done` |
-| `new_operation.sh "<what it does>"` | anywhere, by hand | creates a one-time operation from the template |
-| `premigration_check.sh <stack>` | server, by hand | compares running containers with the compose file |
-| `cleanup_deluge.sh` | server, scheduler | removes orphaned torrents; needs `SONARR_API_KEY` and `RADARR_API_KEY` in its environment (source `stacks/media/.env`); `DRY_RUN=1` to simulate |
-| `check_stacks.sh` | anywhere, CI | validates every stack against the `.env.example` files and the privilege rules |
-| `check_glance_config.sh` | anywhere, CI | validates `config/glance` with the pinned Glance image (pulls it) |
-| `lib.sh` | sourced by the others | shared helpers |
-| `migration_helpers.sh` | server, sourced, once | helpers for the one-time migration from Portainer |
+| Script | Purpose |
+|---|---|
+| `deploy.sh` | the 5-minute deploy (DSM Task Scheduler, root) |
+| `compose.sh <stack> …` | `docker compose` with the stack's env files |
+| `edit_env.sh <stack>\|common` | edit settings and secrets on the NAS |
+| `new_operation.sh`, `run_operations.sh` | one-time operations (`--list`, `--mark-all-done`) |
+| `premigration_check.sh <stack>` | compare running containers with the compose file before replacing them |
+| `cleanup_deluge.sh` | remove orphaned torrents (scheduled; reads its API keys from `stacks/media/.env`, `DRY_RUN=1` to simulate) |
+| `check_stacks.sh`, `check_glance_config.sh` | CI checks, runnable locally |
+| `migration_helpers.sh` | helpers used once, for the migration from Portainer |
 
-## Tests and CI
+Tests: `for test_file in scripts/tests/*_test.sh; do bash "$test_file"; done` (needs bash, git, jq, flock, Docker
+Compose). CI runs them, the two checks and gitleaks on every push and pull request.
 
-```sh
-bash scripts/check_stacks.sh
-for test_file in scripts/tests/*_test.sh; do bash "$test_file"; done
-bash scripts/check_glance_config.sh    # pulls the Glance image
-```
+## New server
 
-The tests run each script through its real entry point. `docker` and `curl` are replaced by stubs, except in the
-`check_stacks.sh` tests, which use the real `docker compose config` (nothing is pulled or started); git remotes are
-throwaway repositories. They need bash, git, jq, flock and Docker Compose.
-
-CI (`.github/workflows/validate.yml`) runs all of it on every push and pull request, plus gitleaks.
+1. Install Git (Package Center), clone the repo as root (LinuxServer images only run root-owned init scripts).
+2. Generate the dashboard login:
+   ```sh
+   image=$(awk '$1 == "image:" && $2 ~ /^glanceapp\/glance:/ { print $2 }' stacks/infrastructure/compose.yml)
+   docker run --rm --entrypoint /app/glance "$image" secret:make                     # GLANCE_SECRET_KEY
+   docker run --rm --entrypoint /app/glance "$image" password:hash '<your password>'  # GLANCE_PASSWORD_HASH
+   ```
+3. `sudo scripts/edit_env.sh common`, then `sudo scripts/edit_env.sh <stack>` for each stack with an `.env.example`.
+4. `sudo scripts/deploy.sh` once. It runs every one-time operation: on a rebuilt server whose data already went
+   through them, run `sudo scripts/run_operations.sh --mark-all-done` first.
+5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
 
 ## Security
 
-- Anyone who can push to `main` runs code as root on the server within 5 minutes. Renovate merges updates by
-  itself, so whoever publishes one of the images (Docker Hub, ghcr.io, lscr.io) or GitHub Actions used here
-  effectively deploys to the server too: an update is only as trustworthy as its publisher.
-- Keep 2FA on the GitHub account, and protect `main` so every change goes through a pull request whose checks
-  pass (you can still merge your own, and Renovate still merges its green pull requests):
-  ```sh
-  gh api -X PUT repos/Androlax2/homelab/branches/main/protection --input - <<'JSON'
-  {
-    "required_status_checks": {"strict": true, "contexts": ["stacks", "glance-config", "scripts", "secrets"]},
-    "enforce_admins": true,
-    "required_pull_request_reviews": {"required_approving_review_count": 0},
-    "restrictions": null,
-    "allow_force_pushes": false,
-    "allow_deletions": false
-  }
-  JSON
-  ```
-- `docs/audits/` holds maintainability audits only. Security reviews are not committed: this repository is public.
+Pushing to `main` (or publishing an image Renovate picks up) deploys as root on the NAS. Keep 2FA on, and protect
+`main`:
 
-## Setting up a server
+```sh
+gh api -X PUT repos/Androlax2/homelab/branches/main/protection --input - <<'JSON'
+{
+  "required_status_checks": {"strict": true, "contexts": ["stacks", "glance-config", "scripts", "secrets"]},
+  "enforce_admins": true,
+  "required_pull_request_reviews": {"required_approving_review_count": 0},
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+JSON
+```
 
-1. Install Docker with a Compose that accepts several `--env-file` flags, plus git, jq and flock.
-2. Clone the repo as root. LinuxServer images only run custom init scripts that are owned by root
-   (`config/prowlarr/mods`).
-3. `sudo scripts/edit_env.sh common`, then `sudo scripts/edit_env.sh <stack>` for every stack that has an
-   `.env.example` (each one starts its stack). Generate the dashboard login first (see above).
-4. Run `sudo scripts/deploy.sh` once. The first run treats every file as changed, starts the remaining stacks, runs
-   every one-time operation and writes `.last-deployed`. If you are rebuilding a server whose data already went
-   through those operations, record them first instead: `sudo scripts/run_operations.sh --mark-all-done`.
-5. Schedule `scripts/deploy.sh` every 5 minutes as root, with a notification when it exits non-zero.
+The repo is public: secrets only in the NAS `.env` files, and security reviews are not committed.
 
 ## Troubleshooting
 
-- **The deploy reports `.env is missing` or `lacks keys`**: `sudo scripts/edit_env.sh <stack>` (or `common`).
-- **Compose warns that a variable "is not set", or containers get empty values**: it was run as a plain
-  `docker compose`; use `scripts/compose.sh <stack> …`.
-- **`git merge --ff-only` fails**: the server's checkout has local edits, or `main` was rewritten (force push).
-  Check with `git -C <checkout> status`; if nothing local matters, `git -C <checkout> reset --hard origin/main`.
-- **A file under `config/` changed but the app didn't pick it up**: the folder name must equal the container's
-  `container_name`.
-- **The dashboard won't start**: Glance refuses a config with an unset variable or an incomplete login; its log
-  (`sudo scripts/compose.sh infrastructure logs glance`) names it.
-- **The deploy keeps failing on the same commit**: the scheduler's output has the error; nothing is marked as
-  deployed until it succeeds.
-- **A one-time operation keeps failing**: its output is in the scheduler's email. Push a corrected version of the same
-  file (it isn't recorded as done yet) or delete it.
+- **Deploy says `.env is missing` / `lacks keys`**: `sudo scripts/edit_env.sh <stack>` (or `common`).
+- **Variables empty / "variable is not set"**: Compose was run directly; use `scripts/compose.sh`.
+- **`git merge --ff-only` fails**: local edits or a force push. `git status`, then `git reset --hard origin/main`
+  (`.env` files are gitignored, so they survive).
+- **Glance won't start**: `sudo scripts/compose.sh infrastructure logs glance` names the missing value.
