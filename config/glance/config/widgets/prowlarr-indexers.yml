@@ -23,10 +23,10 @@
           Some options are not set or malformed
             <table style="border-spacing: 1rem;">
               <tr>
-                <td><strong>PROWLARR_URL & PROWLARR_API_URL</strong> <br/> should include http(s):// and port if needed</td>
+                <td><strong>PROWLARR_URL</strong> <br/> host:port, without http:// (the widget adds it)</td>
               </tr>
               <tr>
-                <td><strong>PROWLARR_KEY</strong> <br/> must be set (Settings > General > Security)</td>
+                <td><strong>PROWLARR_API_KEY</strong> <br/> must be set (Settings > General > Security)</td>
               </tr>
             </table> 
         </p>

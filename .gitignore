@@ -1,5 +1,6 @@
 .idea/
 *.env
 .env
+*.env.previous
 .last-deployed
 .deploy.lock

@@ -1,4 +1,4 @@
-# NOTE: template duplicated in arr-releases-sonarr.yml — keep in sync
+# Movie (Radarr) and series (Sonarr) releases. Both widgets share the template below through a YAML anchor.
 - type: custom-api
   title: Movie Releases
   title-url: http://${RADARR_URL}
@@ -15,7 +15,7 @@
     api-base-url: http://${RADARR_URL}
     key: ${RADARR_API_KEY}
     url: http://${RADARR_URL} # optional
-  template: |
+  template: &arr-releases-template |
     {{ $collapseAfter := .Options.IntOr "collapse-after" 5 }}
     {{ $showGrabbed := .Options.BoolOr "show-grabbed" false }}
     {{ $timezone := now.Location }}
@@ -50,7 +50,7 @@
               <tr><td>service</td><td>{{ $service }}</td><td>must be sonarr, radarr, or lidarr</td></tr>
               <tr><td>type</td><td>{{ $type }}</td><td>must be upcoming, recent, or missing</td></tr>
               <tr><td>api-base-url</td><td>{{ $apiBaseUrl }}</td><td>should include http(s):// and port if needed</td></tr>
-              <tr><td>key</td><td>{{ $key }}</td><td></td></tr>
+              <tr><td>key</td><td>{{ if eq $key "" }}not set{{ else }}set{{ end }}</td><td></td></tr>
             </table> 
         </p>
     {{ else }}
@@ -447,3 +447,19 @@
         {{ end }}
       </ul>
     {{ end }}
+
+- type: custom-api
+  title: Series Releases
+  title-url: http://${SONARR_URL}
+  cache: 30m
+  options:
+    service: sonarr # sonarr, radarr, or lidarr
+    type: upcoming # upcoming, recent, or missing
+    size: medium # small, medium, large, or huge
+    collapse-after: 3
+    show-grabbed: false
+    interval: 20 # optional, days
+    api-base-url: http://${SONARR_URL}
+    key: ${SONARR_API_KEY}
+    url: http://${SONARR_URL} # optional
+  template: *arr-releases-template

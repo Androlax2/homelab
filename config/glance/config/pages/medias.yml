@@ -14,4 +14,3 @@
           max-columns: 2
           widgets:
             $include: ../widgets/arr-releases.yml
-            $include: ../widgets/arr-releases-sonarr.yml

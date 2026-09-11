@@ -6,7 +6,9 @@ set -euo pipefail
 #
 # Usage: bash scripts/tests/deploy_test.sh
 
-DEPLOY_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/deploy.sh"
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/tests/lib.sh
+source "$SCRIPTS_DIR/tests/lib.sh"
 
 # Keep the caller's git config (signing, hooks, default branch) out of the sandbox.
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
@@ -31,16 +33,29 @@ STUB
 
     git init --quiet --bare --initial-branch=main "$sandbox/origin.git"
     git init --quiet --initial-branch=main "$sandbox/dev"
-    mkdir -p "$sandbox/dev/scripts" "$sandbox/dev/stacks/media" "$sandbox/dev/stacks/photos" "$sandbox/dev/config/glance"
-    cp "$DEPLOY_SCRIPT" "$sandbox/dev/scripts/deploy.sh"
-    printf 'services: {}\n' > "$sandbox/dev/stacks/media/compose.yml"
-    printf 'services: {}\n' > "$sandbox/dev/stacks/photos/compose.yml"
+    mkdir -p "$sandbox/dev/scripts" "$sandbox/dev/stacks" "$sandbox/dev/config/glance"
+    cp "$SCRIPTS_DIR/deploy.sh" "$SCRIPTS_DIR/compose.sh" "$SCRIPTS_DIR/lib.sh" "$sandbox/dev/scripts/"
+    printf 'TZ=\n' > "$sandbox/dev/stacks/common.env.example"
+    for stack in media photos; do
+        mkdir -p "$sandbox/dev/stacks/$stack"
+        printf 'services: {}\n' > "$sandbox/dev/stacks/$stack/compose.yml"
+        printf 'API_KEY=\n' > "$sandbox/dev/stacks/$stack/.env.example"
+    done
     printf 'pages: []\n' > "$sandbox/dev/config/glance/glance.yml"
     git -C "$sandbox/dev" add -A
     git -C "$sandbox/dev" commit --quiet -m "initial"
     git -C "$sandbox/dev" remote add origin "$sandbox/origin.git"
     git -C "$sandbox/dev" push --quiet origin main
     git clone --quiet "$sandbox/origin.git" "$sandbox/nas"
+    printf 'TZ=Europe/Paris\n' > "$sandbox/nas/stacks/common.env"
+    for stack in media photos; do
+        printf 'API_KEY=secret\n' > "$sandbox/nas/stacks/$stack/.env"
+    done
+}
+
+in_sandbox() {
+    create_sandbox
+    "$@"
 }
 
 cleanup_sandbox() {
@@ -51,8 +66,9 @@ cleanup_sandbox() {
     rm -rf "$sandbox"
 }
 
+# $1 = file to change, $2 = line to append (defaults to a dummy edit)
 push_edit() {
-    printf 'edit\n' >> "$sandbox/dev/$1"
+    printf '%s\n' "${2:-edit}" >> "$sandbox/dev/$1"
     git -C "$sandbox/dev" commit --quiet -am "edit $1"
     git -C "$sandbox/dev" push --quiet origin main
 }
@@ -65,6 +81,11 @@ push_removal() {
 
 run_deploy() {
     bash "$sandbox/nas/scripts/deploy.sh" >> "$sandbox/deploy.out" 2>&1
+}
+
+# The docker call scripts/compose.sh makes to bring stack $1 up.
+compose_up_call() {
+    printf 'compose --env-file stacks/common.env --env-file stacks/%s/.env -f stacks/%s/compose.yml up -d --remove-orphans' "$1" "$1"
 }
 
 forget_docker_calls() {
@@ -83,10 +104,21 @@ assert_docker_calls() {
     fi
 }
 
+expect_deploy_failure_mentioning() {
+    if run_deploy; then
+        echo "      expected deploy.sh to fail"
+        return 1
+    fi
+    if ! grep -qF "$1" "$sandbox/deploy.out"; then
+        echo "      expected the output to mention: $1"
+        return 1
+    fi
+}
+
 test_first_run_deploys_everything() {
     run_deploy
-    assert_docker_calls "compose -f stacks/media/compose.yml up -d --remove-orphans
-compose -f stacks/photos/compose.yml up -d --remove-orphans
+    assert_docker_calls "$(compose_up_call media)
+$(compose_up_call photos)
 restart glance"
 }
 
@@ -102,7 +134,7 @@ test_stack_change_redeploys_only_that_stack() {
     forget_docker_calls
     push_edit stacks/media/compose.yml
     run_deploy
-    assert_docker_calls "compose -f stacks/media/compose.yml up -d --remove-orphans"
+    assert_docker_calls "$(compose_up_call media)"
 }
 
 test_config_change_restarts_its_container() {
@@ -122,58 +154,55 @@ test_failed_deploy_is_retried() {
     fi
     forget_docker_calls
     run_deploy
-    assert_docker_calls "compose -f stacks/media/compose.yml up -d --remove-orphans"
+    assert_docker_calls "$(compose_up_call media)"
 }
 
 test_removed_stack_is_reported_once_and_never_torn_down() {
     run_deploy
     forget_docker_calls
     push_removal stacks/photos
-    if run_deploy; then
-        echo "      expected a non-zero exit asking for a manual teardown"
-        return 1
-    fi
-    if ! grep -q 'docker compose -p photos down' "$sandbox/deploy.out"; then
-        echo "      expected the teardown command in the output"
-        return 1
-    fi
+    expect_deploy_failure_mentioning "docker compose -p photos down"
     run_deploy
     assert_docker_calls ""
 }
 
-passed=0
-failed=0
-
-run_test() {
-    local description="$1"
-    local test_function="$2"
-    local test_status
-
-    # Not `( ... ) || status=$?`: that context silently disables set -e inside the subshell.
-    set +e
-    (
-        set -e
-        create_sandbox
-        "$test_function"
-    )
-    test_status=$?
-    set -e
-
-    if [ "$test_status" -eq 0 ]; then
-        printf 'PASS  %s\n' "$description"
-        passed=$((passed + 1))
-    else
-        printf 'FAIL  %s\n' "$description"
-        failed=$((failed + 1))
-    fi
+test_missing_key_holds_the_deploy_until_added() {
+    run_deploy
+    forget_docker_calls
+    push_edit stacks/media/.env.example "NEW_KEY="
+    expect_deploy_failure_mentioning "stacks/media/.env lacks keys from .env.example: NEW_KEY"
+    assert_docker_calls ""
+    printf 'NEW_KEY=value\n' >> "$sandbox/nas/stacks/media/.env"
+    run_deploy
+    assert_docker_calls "$(compose_up_call media)"
 }
 
-run_test "it deploys every stack and restarts every config container on the first run" test_first_run_deploys_everything
-run_test "it does nothing when main has not moved" test_unchanged_main_does_nothing
-run_test "it only redeploys the stack whose files changed" test_stack_change_redeploys_only_that_stack
-run_test "it restarts the container named after a changed config folder" test_config_change_restarts_its_container
-run_test "it retries a failed deploy on the next run" test_failed_deploy_is_retried
-run_test "it reports a removed stack once and never tears it down" test_removed_stack_is_reported_once_and_never_torn_down
+test_missing_env_file_holds_the_deploy() {
+    run_deploy
+    forget_docker_calls
+    rm "$sandbox/nas/stacks/media/.env"
+    push_edit stacks/media/compose.yml
+    expect_deploy_failure_mentioning "stacks/media/.env is missing"
+    assert_docker_calls ""
+}
 
-printf '\n%d passed, %d failed\n' "$passed" "$failed"
-[ "$failed" -eq 0 ]
+test_incomplete_common_env_holds_every_stack() {
+    run_deploy
+    forget_docker_calls
+    push_edit stacks/common.env.example "NEW_SHARED="
+    push_edit stacks/media/compose.yml
+    expect_deploy_failure_mentioning "stacks/common.env lacks keys from common.env.example: NEW_SHARED"
+    assert_docker_calls ""
+}
+
+run_test "it deploys every stack and restarts every config container on the first run" in_sandbox test_first_run_deploys_everything
+run_test "it does nothing when main has not moved" in_sandbox test_unchanged_main_does_nothing
+run_test "it only redeploys the stack whose files changed" in_sandbox test_stack_change_redeploys_only_that_stack
+run_test "it restarts the container named after a changed config folder" in_sandbox test_config_change_restarts_its_container
+run_test "it retries a failed deploy on the next run" in_sandbox test_failed_deploy_is_retried
+run_test "it reports a removed stack once and never tears it down" in_sandbox test_removed_stack_is_reported_once_and_never_torn_down
+run_test "it holds back a stack whose .env lacks a key from .env.example until the key is added" in_sandbox test_missing_key_holds_the_deploy_until_added
+run_test "it holds back a stack that has no .env" in_sandbox test_missing_env_file_holds_the_deploy
+run_test "it holds back every stack while common.env lacks a key from common.env.example" in_sandbox test_incomplete_common_env_holds_every_stack
+
+finish_tests

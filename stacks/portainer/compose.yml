@@ -1,24 +1,26 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
 services:
   portainer:
     container_name: portainer
-    image: portainer/portainer-ce:latest
+    image: portainer/portainer-ce:2.45.0
     labels:
       glance.name: Portainer
       glance.icon: di:portainer
-      glance.url: https://jeancloud:9443
+      glance.url: https://${LAN_IP}:9443
       glance.description: Docker Management
       glance.category: system
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-file: ${DOCKERLOGGING_MAXFILE}
-        max-size: ${DOCKERLOGGING_MAXSIZE}
+    logging: *logging
     environment:
       - TZ=${TZ}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DOCKERCONFDIR}/portainer:/data
     ports:
-      - "9000:9000"
+      # HTTPS only: port 9000 served the same UI, logins included, over plain HTTP.
       - "9443:9443"

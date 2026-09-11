@@ -43,19 +43,22 @@ RADARR_API_KEY="${RADARR_API_KEY:?RADARR_API_KEY manquant (stacks/media/.env)}"
 log()  { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 run()  { if [ "$DRY_RUN" = "1" ]; then log "[DRY-RUN] $*"; else "$@"; fi; }
 
+# Titres presents dans une queue *arr. Echoue si l'API ne repond pas : sans la
+# queue, un import en cours pourrait etre supprime.
+# $1 = URL de base, $2 = cle API
+fetch_arr_queue() {
+    local response
+    if ! response=$(curl -sf "${1}/api/v3/queue?pageSize=200" -H "X-Api-Key: ${2}"); then
+        log "ERREUR: queue injoignable (${1})" >&2
+        return 1
+    fi
+    printf '%s\n' "$response" | jq -r '.records[].title'
+}
+
 # Recupere les noms de fichiers presents dans les queues Sonarr/Radarr
 fetch_arr_queues() {
-    local out=""
-    if [ -n "$SONARR_API_KEY" ]; then
-        out+=$(curl -sf "${SONARR_URL}/api/v3/queue?pageSize=200" \
-            -H "X-Api-Key: ${SONARR_API_KEY}" | jq -r '.records[].title' 2>/dev/null || true)
-        out+=$'\n'
-    fi
-    if [ -n "$RADARR_API_KEY" ]; then
-        out+=$(curl -sf "${RADARR_URL}/api/v3/queue?pageSize=200" \
-            -H "X-Api-Key: ${RADARR_API_KEY}" | jq -r '.records[].title' 2>/dev/null || true)
-    fi
-    printf '%s' "$out"
+    fetch_arr_queue "$SONARR_URL" "$SONARR_API_KEY" || return 1
+    fetch_arr_queue "$RADARR_URL" "$RADARR_API_KEY" || return 1
 }
 
 # ---------- 1. Snapshot des torrents Deluge (paires nom<TAB>hash) ----------
@@ -86,28 +89,19 @@ fi
 log "$(printf '%s\n' "$TORRENT_MAP" | wc -l) torrents actifs."
 
 # ---------- 2. Queues *arr (protection des imports en attente) ----------
-ARR_QUEUE=$(fetch_arr_queues)
+if ! ARR_QUEUE=$(fetch_arr_queues); then
+    log "ERREUR: impossible de lire les queues Sonarr/Radarr. Arret, rien n'a ete supprime."
+    exit 1
+fi
 [ -n "$ARR_QUEUE" ] && log "Queue *arr recuperee ($(printf '%s\n' "$ARR_QUEUE" | grep -c .) items)."
 
-# Cherche un hash de torrent correspondant a un nom EXACT ou un prefixe exact.
+# Hash du torrent dont le nom est EXACTEMENT le candidat (insensible a la casse).
+# Jamais de correspondance par prefixe : le dossier "Dune" trouverait le torrent
+# "Dune.Part.Two..." et on supprimerait les donnees d'un autre torrent.
 # $1 = nom candidat (dossier ou fichier sans extension)
 find_torrent_hash() {
-    local candidate="$1"
-    # 1. match exact sur le nom du torrent
-    local hash
-    hash=$(printf '%s\n' "$TORRENT_MAP" | awk -F'\t' -v c="$candidate" \
-        'tolower($1) == tolower(c) { print $2; exit }')
-    if [ -n "$hash" ]; then printf '%s' "$hash"; return 0; fi
-    # 2. fallback : prefixe exact (fixed-string, insensible a la casse, jamais de regex)
-    printf '%s\n' "$TORRENT_MAP" | while IFS=$'\t' read -r tname thash; do
-        local lc_t lc_c
-        lc_t=$(printf '%s' "$tname" | tr '[:upper:]' '[:lower:]')
-        lc_c=$(printf '%s' "$candidate" | tr '[:upper:]' '[:lower:]')
-        if [ "$lc_t" = "$lc_c" ] || [[ "$lc_c" == "$lc_t"* ]] || [[ "$lc_t" == "$lc_c"* ]]; then
-            printf '%s' "$thash"
-            return 0
-        fi
-    done
+    printf '%s\n' "$TORRENT_MAP" | candidate="$1" awk -F'\t' \
+        'tolower($1) == tolower(ENVIRON["candidate"]) { print $2; exit }'
 }
 
 # Remonte l'arborescence depuis le fichier jusqu'a DOWNLOADS_PATH en essayant
@@ -187,4 +181,6 @@ done < <(docker exec "$DELUGE_CONTAINER" find "$DOWNLOADS_PATH" -type f \
             -links 1  -print0)
 
 log "Termine. Torrents supprimes: $removed | Fichiers purges: $purged | Ignores: $skipped"
-[ "$DRY_RUN" = "1" ] && log "(mode DRY-RUN : rien n'a ete supprime)"
+if [ "$DRY_RUN" = "1" ]; then
+    log "(mode DRY-RUN : rien n'a ete supprime)"
+fi

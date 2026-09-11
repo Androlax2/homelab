@@ -2,12 +2,16 @@
 set -euo pipefail
 
 # ============================================================
-# Deploys origin/main on the NAS. Run as root by DSM Task Scheduler every 5 min.
+# Deploys origin/main on the NAS. Run as root by a scheduler every 5 min.
 #
 # Fast-forwards this checkout, then redeploys what changed since the last
 # successful run (commit stored in .last-deployed):
 #   stacks/<stack>/...  -> docker compose up -d for that stack
 #   config/<name>/...   -> docker restart <name>  (folder named after its container)
+#
+# Nothing is touched until stacks/common.env and the .env of every stack about
+# to be deployed define each key of their .env.example: a missing key would
+# otherwise start the containers with an empty value.
 #
 # .last-deployed only moves once every step succeeded, so a failed run is
 # retried on the next tick instead of being skipped.
@@ -18,8 +22,24 @@ PATH="$PATH:/usr/local/bin"
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAST_DEPLOYED_FILE="$REPO_DIR/.last-deployed"
+# shellcheck source=scripts/lib.sh
+source "$REPO_DIR/scripts/lib.sh"
 
-log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
+# $1 = env file, $2 = its .env.example, $3 = what to pass to edit_env.sh to fix it
+assert_env_complete() {
+    local env_file="$1" example_file="$2" edit_target="$3"
+    if [ ! -f "$env_file" ]; then
+        log "ERROR: $env_file is missing. Create it with scripts/edit_env.sh $edit_target"
+        exit 1
+    fi
+    local missing_keys
+    missing_keys=$(missing_env_keys "$example_file" "$env_file")
+    if [ -n "$missing_keys" ]; then
+        log "ERROR: $env_file lacks keys from $(basename "$example_file"): $(printf '%s' "$missing_keys" | tr '\n' ' ')"
+        log "Add them with scripts/edit_env.sh $edit_target"
+        exit 1
+    fi
+}
 
 cd "$REPO_DIR"
 
@@ -47,16 +67,29 @@ fi
 
 changed_stacks=$(printf '%s\n' "$changed_paths" | awk -F/ '$1 == "stacks" && NF > 2 { print $2 }' | sort -u)
 changed_configs=$(printf '%s\n' "$changed_paths" | awk -F/ '$1 == "config" && NF > 2 { print $2 }' | sort -u)
+stacks_to_deploy=()
 removed_stacks=()
 
 for stack in $changed_stacks; do
-    compose_file="stacks/$stack/compose.yml"
-    if [ ! -f "$compose_file" ]; then
+    if [ -f "stacks/$stack/compose.yml" ]; then
+        stacks_to_deploy+=("$stack")
+    else
         removed_stacks+=("$stack")
-        continue
     fi
+done
+
+if [ ${#stacks_to_deploy[@]} -gt 0 ]; then
+    assert_env_complete stacks/common.env stacks/common.env.example common
+fi
+for stack in "${stacks_to_deploy[@]}"; do
+    if [ -f "stacks/$stack/.env.example" ]; then
+        assert_env_complete "stacks/$stack/.env" "stacks/$stack/.env.example" "$stack"
+    fi
+done
+
+for stack in "${stacks_to_deploy[@]}"; do
     log "Stack $stack: compose up"
-    docker compose -f "$compose_file" up -d --remove-orphans
+    "$REPO_DIR/scripts/compose.sh" "$stack" up -d --remove-orphans
 done
 
 for container in $changed_configs; do
@@ -68,8 +101,8 @@ done
 printf '%s\n' "$current_commit" > "$LAST_DEPLOYED_FILE"
 log "Deployed ${current_commit:0:7}."
 
-# Tearing a stack down is never automatic. Exiting non-zero makes DSM email this
-# once; .last-deployed already moved, so the next run does not repeat it.
+# Tearing a stack down is never automatic. Exiting non-zero makes the scheduler
+# report this once; .last-deployed already moved, so the next run does not repeat it.
 if [ ${#removed_stacks[@]} -gt 0 ]; then
     for stack in "${removed_stacks[@]}"; do
         log "Stack $stack was removed from the repo. Tear it down by hand: docker compose -p $stack down"

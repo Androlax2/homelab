@@ -1,32 +1,32 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
 services:
   vaultwarden:
-      container_name: vaultwarden
-      image: vaultwarden/server:latest
-      labels:
-        glance.name: "Vaultwarden"
-        glance.icon: "sh:vaultwarden"
-        glance.description: "Password Manager"
-        glance.category: "security"
-        glance.url: "http://${LAN_IP}:8580"
-      restart: unless-stopped
-      logging:
-        driver: json-file
-        options:
-          max-file: ${DOCKERLOGGING_MAXFILE}
-          max-size: ${DOCKERLOGGING_MAXSIZE}
-      environment:
-        - TZ=${TZ}
-        - DOMAIN=https://jeancloud:8443
-        - SIGNUPS_ALLOWED=false
-        - INVITATIONS_ALLOWED=true
-        - SHOW_PASSWORD_HINT=false
-        - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
-        - WEBSOCKET_ENABLED=true
-        - WEB_VAULT_ENABLED=true
-        - SENDS_ALLOWED=false
-        - EMERGENCY_ACCESS_ALLOWED=false
-      volumes:
-        - ${DOCKERCONFDIR}/vaultwarden:/data:rw
-      ports:
-        - "8580:80"
-        - "3012:3012"
+    container_name: vaultwarden
+    image: vaultwarden/server:1.37.2
+    labels:
+      glance.name: "Vaultwarden"
+      glance.icon: "sh:vaultwarden"
+      glance.description: "Password Manager"
+      glance.category: "security"
+      glance.url: "http://${LAN_IP}:8580"
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      - TZ=${TZ}
+      - DOMAIN=${VAULTWARDEN_DOMAIN}
+      - SIGNUPS_ALLOWED=false
+      - INVITATIONS_ALLOWED=true
+      - SHOW_PASSWORD_HINT=false
+      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
+      - WEB_VAULT_ENABLED=true
+      - SENDS_ALLOWED=false
+      - EMERGENCY_ACCESS_ALLOWED=false
+    volumes:
+      - ${DOCKERCONFDIR}/vaultwarden:/data:rw
+    ports:
+      - "8580:80"

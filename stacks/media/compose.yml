@@ -1,7 +1,13 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
 services:
 
   maintainerr:
-    image: ghcr.io/maintainerr/maintainerr:latest
+    image: ghcr.io/maintainerr/maintainerr:3.27.0
     container_name: maintainerr
     user: "${PUID}:${PGID}"
     network_mode: host
@@ -11,6 +17,7 @@ services:
       glance.description: "Maintainerr"
       glance.category: "media"
       glance.url: "http://${LAN_IP}:6246"
+    logging: *logging
     environment:
       - TZ=${TZ}
     volumes:
@@ -18,7 +25,7 @@ services:
     restart: unless-stopped
 
   tautulli:
-    image: lscr.io/linuxserver/tautulli:latest
+    image: lscr.io/linuxserver/tautulli:v2.18.1-ls244
     labels:
       glance.name: "Tautulli"
       glance.icon: "sh:tautulli"
@@ -27,16 +34,17 @@ services:
       glance.url: "http://${LAN_IP}:8181"
     container_name: tautulli
     network_mode: host
+    logging: *logging
     environment:
-      - PUID=${PUID} # default user id, defined in .env
-      - PGID=${PGID} # default group id, defined in .env
-      - TZ=${TZ} # timezone, defined in .env
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
       - ${DOCKERCONFDIR}/tautulli:/config
     restart: unless-stopped
 
   seerr:
-    image: ghcr.io/seerr-team/seerr:latest
+    image: ghcr.io/seerr-team/seerr:v3.4.1
     init: true
     user: "${PUID}:${PGID}"
     labels:
@@ -47,10 +55,9 @@ services:
       glance.url: "http://${LAN_IP}:5055"
     container_name: seerr
     network_mode: host
+    logging: *logging
     environment:
-      - PUID=${PUID} # default user id, defined in .env
-      - PGID=${PGID} # default group id, defined in .env
-      - TZ=${TZ} # timezone, defined in .env
+      - TZ=${TZ}
     volumes:
       - ${DOCKERCONFDIR}/seerr:/app/config
     dns:
@@ -60,7 +67,7 @@ services:
 
   deluge:
     container_name: deluge
-    image: binhex/arch-delugevpn
+    image: binhex/arch-delugevpn:2.2.0-1-04
     labels:
       glance.name: "Deluge"
       glance.icon: "sh:deluge"
@@ -73,6 +80,7 @@ services:
       - "58846:58846"
       - "58946:58946"
     restart: unless-stopped
+    logging: *logging
     cap_add:
       - NET_ADMIN
     volumes:
@@ -96,12 +104,8 @@ services:
 
   prowlarr:
     container_name: prowlarr
-    image: lscr.io/linuxserver/prowlarr:latest
-    logging:
-      driver: json-file
-      options:
-        max-file: ${DOCKERLOGGING_MAXFILE}
-        max-size: ${DOCKERLOGGING_MAXSIZE}
+    image: lscr.io/linuxserver/prowlarr:2.5.2.5491-ls159
+    logging: *logging
     restart: unless-stopped
     dns:
       - 194.242.2.2
@@ -115,19 +119,21 @@ services:
       glance.category: "media"
       glance.url: "http://${LAN_IP}:9696"
     environment:
-      - PUID=${PUID} # default user id, defined in .env
-      - PGID=${PGID} # default group id, defined in .env
-      - TZ=${TZ} # timezone, defined in .env
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
       - ${DOCKERCONFDIR}/prowlarr:/config:rw
       - ../../config/prowlarr/mods:/custom-cont-init.d:ro
 
   prowlarr-postgres:
     container_name: prowlarr-postgres
-    image: postgres:14
+    image: postgres:14.24
     restart: unless-stopped
+    logging: *logging
     network_mode: host
-    command: -p 5433
+    # Host network: without listen_addresses, Postgres would take connections from the whole LAN.
+    command: -p 5433 -c listen_addresses=localhost
     labels:
       glance.name: "Prowlarr PostgreSQL"
       glance.icon: "sh:postgresql"
@@ -138,8 +144,6 @@ services:
       - POSTGRES_USER=prowlarr
       - POSTGRES_PASSWORD=${PROWLARR_DB_PASSWORD}
       - POSTGRES_DB=prowlarr-main
-      - PUID=${PUID}
-      - PGID=${PGID}
       - TZ=${TZ}
       - PGPORT=5433
     volumes:
@@ -147,7 +151,7 @@ services:
 
   sonarr:
     container_name: sonarr
-    image: linuxserver/sonarr:latest
+    image: lscr.io/linuxserver/sonarr:4.0.19.2979-ls323
     labels:
       glance.name: "Sonarr"
       glance.icon: "sh:sonarr"
@@ -156,11 +160,7 @@ services:
       glance.url: "http://${LAN_IP}:8989"
     restart: unless-stopped
     network_mode: host
-    logging:
-      driver: json-file
-      options:
-        max-file: ${DOCKERLOGGING_MAXFILE}
-        max-size: ${DOCKERLOGGING_MAXSIZE}
+    logging: *logging
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -172,19 +172,15 @@ services:
 
   radarr:
     container_name: radarr
-    image: linuxserver/radarr:latest
+    image: lscr.io/linuxserver/radarr:6.3.0.10514-ls315
     labels:
-      glance.name: "Radarr" 
+      glance.name: "Radarr"
       glance.icon: "sh:radarr"
       glance.description: "Movie Management"
       glance.category: "media"
       glance.url: "http://${LAN_IP}:7878"
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-file: ${DOCKERLOGGING_MAXFILE}
-        max-size: ${DOCKERLOGGING_MAXSIZE}
+    logging: *logging
     network_mode: host
     environment:
       - PUID=${PUID}
@@ -197,7 +193,7 @@ services:
 
   plex-server:
     container_name: plex-server
-    image: plexinc/pms-docker:latest
+    image: plexinc/pms-docker:1.43.4.10903-e5521bd8c
     restart: unless-stopped
     labels:
       glance.name: "Plex"
@@ -205,13 +201,9 @@ services:
       glance.description: "Media Server"
       glance.category: "media"
       glance.url: "http://${LAN_IP}:32400"
-    logging:
-      driver: json-file
-      options:
-        max-file: ${DOCKERLOGGING_MAXFILE}
-        max-size: ${DOCKERLOGGING_MAXSIZE}
+    logging: *logging
     environment:
-      - TZ=${TZ} # timezone, defined in .env
+      - TZ=${TZ}
       - PLEX_UID=${PUID}
       - PLEX_GID=${PGID}
     network_mode: host
@@ -219,8 +211,9 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ${DOCKERCONFDIR}/plex:/config:rw
       - ${DOCKERSTORAGEDIR}/media:/data/media:rw
-    devices: # optional: if you have a Syno with an Intel CPU with quicksync and want hardware transcoding (only with Plex Pass) uncomment this line.
-      - /dev/dri:/dev/dri # optional: if you have a Syno with an Intel CPU with quicksync and want hardware transcoding (only with Plex Pass) uncomment this line.
+    # Intel Quick Sync hardware transcoding (needs Plex Pass).
+    devices:
+      - /dev/dri:/dev/dri
 
   notifiarr:
     container_name: notifiarr
@@ -230,7 +223,8 @@ services:
       glance.description: "Notifications"
       glance.category: "media"
     network_mode: host
-    image: golift/notifiarr
+    image: golift/notifiarr:0.9.7
     restart: unless-stopped
+    logging: *logging
     volumes:
       - ${DOCKERCONFDIR}/notifiarr:/config

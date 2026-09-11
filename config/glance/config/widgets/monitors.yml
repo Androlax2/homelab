@@ -2,3 +2,4 @@
   title: "Containers"
   hide-by-default: false
   running-only: false
+  sock-path: tcp://docker-socket-proxy:2375

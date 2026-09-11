@@ -1,49 +1,53 @@
-services:
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
 
-  watchtower:
-    container_name: watchtower
-    labels:
-      glance.name: "Watchtower"
-      glance.icon: "si:watchtower"
-      glance.description: "Auto Updates"
-      glance.category: "infrastructure"
-    image: containrrr/watchtower:latest
-    restart: unless-stopped
-    environment:
-      - WATCHTOWER_SCHEDULE=0 30 10 * * *
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_NOTIFICATION_REPORT=true
-      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+services:
 
   glance:
     container_name: glance
-    image: glanceapp/glance:latest
+    image: glanceapp/glance:v0.8.6
     restart: unless-stopped
     labels:
       glance.name: "Glance"
+      glance.id: "glance"
       glance.icon: "sh:glance"
       glance.description: "Dashboard"
       glance.category: "infrastructure"
       glance.url: "http://${LAN_IP}:8090"
-    logging:
-      driver: json-file
-      options:
-        max-file: ${DOCKERLOGGING_MAXFILE}
-        max-size: ${DOCKERLOGGING_MAXSIZE}
+    logging: *logging
     env_file:
+      - ../common.env
       - .env
     volumes:
       - ../../config/glance/config:/app/config:ro
       - ../../config/glance/assets:/app/assets:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "8090:8080"
 
+  # Read-only Docker API for Glance's container list. Whoever holds the Docker
+  # socket is root on the server, so Glance never gets it directly.
+  docker-socket-proxy:
+    container_name: docker-socket-proxy
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    labels:
+      glance.name: "Docker Socket Proxy"
+      glance.icon: "si:docker"
+      glance.description: "Read-only Docker API for Glance"
+      glance.category: "infrastructure"
+      glance.parent: "glance"
+    logging: *logging
+    environment:
+      - CONTAINERS=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
   filebrowser:
     container_name: filebrowser
-    image: filebrowser/filebrowser:s6
+    image: filebrowser/filebrowser:v2.63.23-s6
     labels:
       glance.name: "FileBrowser"
       glance.icon: "di:filebrowser"
@@ -51,10 +55,11 @@ services:
       glance.category: "infrastructure"
       glance.url: "http://${LAN_IP}:8095"
     restart: unless-stopped
+    logging: *logging
     ports:
       - "8095:8080"
     volumes:
-      - /volume1/docker/appdata:/srv
+      - ${FILEBROWSER_ROOT}:/srv
       - ${DOCKERCONFDIR}/filebrowser/database:/database
       # Not :ro: the s6 image chowns its mounts at startup and exits on a read-only one.
       - ../../config/filebrowser/config:/config
@@ -62,8 +67,3 @@ services:
       - TZ=${TZ}
       - PUID=${PUID}
       - PGID=${PGID}
-    logging:
-      driver: json-file
-      options:
-        max-file: ${DOCKERLOGGING_MAXFILE}
-        max-size: ${DOCKERLOGGING_MAXSIZE}
