@@ -1,11 +1,12 @@
-# Recyclarr pushes what is declared here into Sonarr and Radarr, every night (the recyclarr
-# service in stacks/media/compose.yml). Check a change before pushing it:
-# scripts/preview_recyclarr.sh.
+# Sonarr/Radarr quality profiles and custom formats, synced both ways by scripts/sync_arr_settings.sh
+# on the NAS: changes made here are applied to the apps, changes made in the apps come back as a pull
+# request. Check a change before pushing it: scripts/preview_recyclarr.sh.
 
 sonarr:
   series:
     base_url: !env_var SONARR_BASE_URL
     api_key: !env_var SONARR_API_KEY
+    delete_old_custom_formats: true
     quality_profiles:
       - name: "[French] HD Bluray + WEB (1080p)"
         upgrade:
@@ -14,6 +15,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Unknown"
@@ -69,6 +72,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "WEB 1080p"
@@ -120,6 +125,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "WEB 1080p"
@@ -176,6 +183,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "WEB 2160p"
@@ -225,6 +234,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "WEB 2160p"
@@ -280,6 +291,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "WEB 2160p"
@@ -336,6 +349,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "WEB 1080p"
@@ -382,6 +397,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "WEB 2160p"
@@ -426,6 +443,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "WEB 2160p"
@@ -478,6 +497,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "WEB 2160p"
@@ -533,6 +554,8 @@ sonarr:
           until_score: 10000
         min_format_score: 100
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Bluray-2160p Remux"
@@ -579,6 +602,8 @@ sonarr:
           until_score: 10000
         min_format_score: 100
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Bluray-2160p Remux"
@@ -625,6 +650,8 @@ sonarr:
           until_score: 10000
         min_format_score: 100
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Bluray-2160p Remux"
@@ -2173,6 +2200,7 @@ radarr:
   movies:
     base_url: !env_var RADARR_BASE_URL
     api_key: !env_var RADARR_API_KEY
+    delete_old_custom_formats: true
     quality_profiles:
       - name: "[French] HD Bluray + WEB"
         upgrade:
@@ -2181,6 +2209,8 @@ radarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Raw-HD"
@@ -2251,6 +2281,8 @@ radarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Bluray-1080p"
@@ -2321,6 +2353,8 @@ radarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Remux-2160p"
@@ -2379,6 +2413,8 @@ radarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Remux-2160p"
@@ -2446,6 +2482,8 @@ radarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Remux-1080p"
@@ -2517,6 +2555,8 @@ radarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Remux-2160p"
@@ -2588,6 +2628,8 @@ radarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Bluray-2160p"
@@ -2659,6 +2701,8 @@ radarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Bluray-2160p"
@@ -2730,6 +2774,8 @@ radarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "Remux-2160p"

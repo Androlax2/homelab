@@ -132,14 +132,15 @@ test_gives_colliding_names_distinct_ids() {
 test_writes_profiles_in_screen_order_with_their_scores() {
     run_export || fail_with "expected success"
     assert_content "$recyclarr_dir/configs/instances.yml" <<'YAML'
-# Recyclarr pushes what is declared here into Sonarr and Radarr, every night (the recyclarr
-# service in stacks/media/compose.yml). Check a change before pushing it:
-# scripts/preview_recyclarr.sh.
+# Sonarr/Radarr quality profiles and custom formats, synced both ways by scripts/sync_arr_settings.sh
+# on the NAS: changes made here are applied to the apps, changes made in the apps come back as a pull
+# request. Check a change before pushing it: scripts/preview_recyclarr.sh.
 
 sonarr:
   series:
     base_url: !env_var SONARR_BASE_URL
     api_key: !env_var SONARR_API_KEY
+    delete_old_custom_formats: true
     quality_profiles:
       - name: "HD-1080p"
         upgrade:
@@ -148,6 +149,8 @@ sonarr:
           until_score: 10000
         min_format_score: 0
         min_upgrade_format_score: 1
+        reset_unmatched_scores:
+          enabled: true
         quality_sort: top
         qualities:
           - name: "WEB 1080p"
@@ -175,6 +178,7 @@ radarr:
   movies:
     base_url: !env_var RADARR_BASE_URL
     api_key: !env_var RADARR_API_KEY
+    delete_old_custom_formats: true
 YAML
 }
 

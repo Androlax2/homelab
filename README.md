@@ -78,13 +78,18 @@ deploy and is retried. `sudo scripts/run_operations.sh --list` shows what ran.
 ## Sonarr and Radarr settings
 
 Quality profiles and custom formats live in `config/recyclarr/`: profiles and scores in `configs/instances.yml`,
-each custom format as a JSON file in `custom-formats/<service>/`. The `recyclarr` container (media stack) pushes them
-into Sonarr and Radarr every night, overwriting UI changes to what it manages.
+each custom format as a JSON file in `custom-formats/<service>/`. `scripts/sync_arr_settings.sh` keeps them in sync
+both ways, every 15 minutes on the NAS:
 
-- `scripts/preview_recyclarr.sh` (your computer) shows what a sync of the repo's files would change. Run it before
-  pushing a change, and push only when it shows what you expect.
-- `scripts/export_arr_settings.sh` (your computer) copies the apps' current profiles and custom formats into those
-  files, then runs the preview. Naming isn't copied: Recyclarr only accepts the TRaSH Guides' naming presets.
+- changed in Sonarr/Radarr → pull request `arr-settings-sync` with the new files, merged once CI passes;
+- changed in the repo → applied to the apps by Recyclarr once deployed;
+- changed on both sides since the last sync → nothing is touched and the job fails (DSM emails you) until you pick
+  a side: `sudo scripts/sync_arr_settings.sh --take-apps` or `--take-repo`.
+
+Not synced: naming (Recyclarr only knows the TRaSH Guides' presets), and deleting a quality profile from the repo
+(delete it in the app). Edit the files the way the export writes them (a score of 0 is no entry): after applying,
+the sync reads the apps back and fails if they don't match the repo exactly. Before pushing a change, `scripts/preview_recyclarr.sh` (your computer) shows what it would
+do to the apps. `scripts/export_arr_settings.sh` (your computer) copies the apps into the repo by hand.
 
 ## Backups
 
@@ -108,6 +113,7 @@ into Sonarr and Radarr every night, overwriting UI changes to what it manages.
 | `premigration_check.sh <stack>` | compare running containers with the compose file before replacing them |
 | `cleanup_deluge.sh` | remove orphaned torrents (scheduled; reads its API keys from `stacks/media/.env`, `DRY_RUN=1` to simulate) |
 | `backup_databases.sh <folder>` | nightly database dumps (see Backups) |
+| `sync_arr_settings.sh` | two-way sync of the Sonarr/Radarr settings (every 15 minutes, root; `--take-apps`, `--take-repo`) |
 | `export_arr_settings.sh`, `preview_recyclarr.sh` | copy Sonarr/Radarr settings into the repo, preview a sync (your computer) |
 | `check_stacks.sh`, `check_glance_config.sh` | CI checks, runnable locally |
 | `migration_helpers.sh` | helpers used once, for the migration from Portainer |
@@ -130,6 +136,11 @@ Compose). CI runs them, the two checks and gitleaks on every push and pull reque
 5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
 6. Task Scheduler: `bash /volume1/docker/homelab/scripts/backup_databases.sh <folder>` as root nightly, email on
    failure; then a Hyper Backup task (see Backups) scheduled after it.
+7. Settings sync: create a fine-grained GitHub token for this repository only, with Contents and Pull requests set
+   to read and write, and save it root-only on the NAS:
+   `sudo sh -c 'umask 077; cat > /volume1/docker/homelab/.github-token'` (paste, Enter, Ctrl-D). Turn on "Allow
+   auto-merge" in the repository settings. Then Task Scheduler: `bash /volume1/docker/homelab/scripts/sync_arr_settings.sh`
+   as root every 15 minutes, email on failure. When the token expires, the job fails until you save a new one.
 
 ## Security
 
@@ -149,7 +160,8 @@ gh api -X PUT repos/Androlax2/homelab/branches/main/protection --input - <<'JSON
 JSON
 ```
 
-The repo is public: secrets only in the NAS `.env` files, and security reviews are not committed.
+The repo is public: secrets only in the NAS `.env` files, and security reviews are not committed. The NAS holds a
+GitHub token for the settings sync: its pull requests may only change `config/recyclarr/` (CI checks it).
 
 ## Troubleshooting
 

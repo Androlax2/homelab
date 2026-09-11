@@ -4,4 +4,6 @@
 *.env.previous
 .last-deployed
 .operations-done
+.arr-settings-synced
+.github-token
 .deploy.lock

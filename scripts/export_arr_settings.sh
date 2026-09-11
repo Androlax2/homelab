@@ -8,20 +8,39 @@ set -euo pipefail
 #   config/recyclarr/configs/instances.yml             profiles and custom format scores
 #   config/recyclarr/custom-formats/<service>/*.json    every custom format, one file each
 # Naming isn't copied: Recyclarr only accepts the TRaSH Guides' naming presets.
+# sync_arr_settings.sh runs it on the NAS too, into a scratch folder (--to, --no-preview).
 #
-# Run it on a computer that reaches the NAS. It asks for the API keys (Settings >
-# General in each app) unless SONARR_API_KEY / RADARR_API_KEY are set.
+# It asks for the API keys (Settings > General in each app) unless SONARR_API_KEY /
+# RADARR_API_KEY are set.
 #
-# Usage: scripts/export_arr_settings.sh
+# Usage: scripts/export_arr_settings.sh [--to <directory>] [--no-preview]
 #        SONARR_URL=http://<nas>:8989 RADARR_URL=http://<nas>:7878 scripts/export_arr_settings.sh
 # ============================================================
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RECYCLARR_DIR="$REPO_DIR/config/recyclarr"
 export SONARR_URL="${SONARR_URL:-http://jeancloud:8989}"
 export RADARR_URL="${RADARR_URL:-http://jeancloud:7878}"
 # shellcheck source=scripts/lib.sh
 source "$REPO_DIR/scripts/lib.sh"
+
+output_dir="$REPO_DIR/config/recyclarr"
+run_preview=true
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --to)
+            output_dir="${2:?--to needs a directory}"
+            shift 2
+            ;;
+        --no-preview)
+            run_preview=false
+            shift
+            ;;
+        *)
+            echo "Usage: scripts/export_arr_settings.sh [--to <directory>] [--no-preview]" >&2
+            exit 1
+            ;;
+    esac
+done
 
 # $1 = base URL, $2 = API key, $3 = API path
 api_get() {
@@ -71,6 +90,7 @@ INSTANCE_YAML_JQ='
         + "          until_score: \(.cutoffFormatScore // 0)\n"
         + "        min_format_score: \(.minFormatScore // 0)\n"
         + (if has("minUpgradeFormatScore") then "        min_upgrade_format_score: \(.minUpgradeFormatScore)\n" else "" end)
+        + "        reset_unmatched_scores:\n          enabled: true\n"
         + "        quality_sort: top\n"
         + "        qualities:\n"
         + ([.items | reverse[] | quality_entry] | join(""))
@@ -84,6 +104,7 @@ INSTANCE_YAML_JQ='
     | "\($service):\n  \($instance):\n"
       + "    base_url: !env_var \($service | ascii_upcase)_BASE_URL\n"
       + "    api_key: !env_var \($service | ascii_upcase)_API_KEY\n"
+      + "    delete_old_custom_formats: true\n"
       + (if $profiles_yaml == "" then "" else "    quality_profiles:\n" + $profiles_yaml end)
       + (if $formats_yaml == "" then "" else "    custom_formats:\n" + $formats_yaml end)'
 
@@ -99,7 +120,7 @@ radarr_profiles=$(api_get "$RADARR_URL" "$RADARR_API_KEY" /api/v3/qualityprofile
 # $1 = service, $2 = instance name in instances.yml, $3 = custom formats JSON, $4 = profiles JSON
 export_service() {
     local service="$1" instance="$2" formats_json="$3" profiles_json="$4"
-    local formats_dir="$RECYCLARR_DIR/custom-formats/$service" custom_formats
+    local formats_dir="$output_dir/custom-formats/$service" custom_formats
     custom_formats=$(jq -c --arg service "$service" "$CUSTOM_FORMATS_JQ" <<<"$formats_json")
 
     mkdir -p "$formats_dir"
@@ -115,15 +136,18 @@ export_service() {
 
 sonarr_yaml=$(export_service sonarr series "$sonarr_formats" "$sonarr_profiles")
 radarr_yaml=$(export_service radarr movies "$radarr_formats" "$radarr_profiles")
+mkdir -p "$output_dir/configs"
 {
-    echo "# Recyclarr pushes what is declared here into Sonarr and Radarr, every night (the recyclarr"
-    echo "# service in stacks/media/compose.yml). Check a change before pushing it:"
-    echo "# scripts/preview_recyclarr.sh."
+    echo "# Sonarr/Radarr quality profiles and custom formats, synced both ways by scripts/sync_arr_settings.sh"
+    echo "# on the NAS: changes made here are applied to the apps, changes made in the apps come back as a pull"
+    echo "# request. Check a change before pushing it: scripts/preview_recyclarr.sh."
     echo
     printf '%s\n\n' "$sonarr_yaml"
     printf '%s\n' "$radarr_yaml"
-} > "$RECYCLARR_DIR/configs/instances.yml"
+} > "$output_dir/configs/instances.yml"
 
-echo "Wrote config/recyclarr/configs/instances.yml and config/recyclarr/custom-formats/."
-echo "Previewing what a sync of these files would change (it must show no change before you push):"
-exec "$REPO_DIR/scripts/preview_recyclarr.sh"
+echo "Wrote $output_dir/configs/instances.yml and $output_dir/custom-formats/."
+if [ "$run_preview" = true ]; then
+    echo "Previewing what a sync of these files would change (it must show no change before you push):"
+    exec "$REPO_DIR/scripts/preview_recyclarr.sh"
+fi

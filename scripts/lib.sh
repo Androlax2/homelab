@@ -12,6 +12,12 @@ ask_api_key() {
     export "${1?}"
 }
 
+# Prints the value of <key> in a dotenv file without its surrounding quotes, or nothing if absent.
+# $1 = file, $2 = key
+env_value() {
+    sed -n "s/^$2=//p" "$1" | tail -n 1 | sed -E "s/^'(.*)'\$/\\1/; s/^\"(.*)\"\$/\\1/"
+}
+
 # Prints the keys a dotenv file defines, one per line, sorted.
 env_keys() {
     sed -n 's/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' "$1" | sort -u
