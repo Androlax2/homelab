@@ -28,4 +28,5 @@ sed -i \
 
 docker run --rm --env-file "$env_file" \
     -v "$REPO_DIR/config/glance/config:/app/config:ro" \
+    -v "$REPO_DIR/config/glance/assets:/app/assets:ro" \
     "$glance_image" config:validate

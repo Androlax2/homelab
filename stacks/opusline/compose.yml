@@ -41,7 +41,7 @@ services:
     image: ghcr.io/opusline/opusline-web:${OPUSLINE_VERSION:?Set OPUSLINE_VERSION in stacks/opusline/.env}
     labels:
       glance.name: "Opusline"
-      glance.icon: "sh:laravel"
+      glance.icon: "/assets/opusline.svg"
       glance.description: "Freelance management"
       glance.category: "productivity"
       glance.id: "opusline"

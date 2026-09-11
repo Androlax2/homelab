@@ -1,4 +1,4 @@
-# Helpers for docs/migration-from-portainer.md. Source it from the repo root, in a root bash shell:
+# Helpers for the one-time migration from Portainer. Source it from the repo root, in a root bash shell:
 #   source scripts/migration_helpers.sh
 # None of them touches a container: they read Portainer's files and write env files.
 

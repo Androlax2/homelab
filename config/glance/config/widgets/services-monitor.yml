@@ -12,9 +12,6 @@
     - title: FileBrowser
       url: http://${LAN_IP}:8095
       icon: sh:filebrowser
-    - title: Kimai
-      url: http://${LAN_IP}:8010
-      icon: sh:kimai
     - title: Notifiarr
       url: http://${LAN_IP}:5454
       icon: sh:notifiarr

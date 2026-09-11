@@ -124,7 +124,6 @@ when you are ready. Data folders are left alone.
 **Replace containers started some other way** (another tool, an old compose file): run
 `sudo scripts/premigration_check.sh <stack>` first. It compares the running containers with what the stack would
 create: mounts, Docker volumes, environment variable names, image versions.
-[docs/migration-from-portainer.md](docs/migration-from-portainer.md) is the full procedure used for this server.
 
 ## Scripts
 
@@ -138,7 +137,7 @@ create: mounts, Docker volumes, environment variable names, image versions.
 | `check_stacks.sh` | anywhere, CI | validates every stack against the `.env.example` files and the privilege rules |
 | `check_glance_config.sh` | anywhere, CI | validates `config/glance` with the pinned Glance image (pulls it) |
 | `lib.sh` | sourced by the others | shared helpers |
-| `migration_helpers.sh` | server, sourced, once | helpers used by the Portainer migration runbook |
+| `migration_helpers.sh` | server, sourced, once | helpers for the one-time migration from Portainer |
 
 ## Tests and CI
 

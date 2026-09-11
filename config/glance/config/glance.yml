@@ -1,3 +1,7 @@
+server:
+  # config/glance/assets, served under /assets/ (custom icons such as opusline.svg)
+  assets-path: /app/assets
+
 auth:
   secret-key: ${GLANCE_SECRET_KEY}
   users:

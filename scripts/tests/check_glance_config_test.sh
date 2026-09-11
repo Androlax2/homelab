@@ -14,7 +14,7 @@ create_sandbox() {
     sandbox=$(mktemp -d)
     trap 'rm -rf "$sandbox"' EXIT
     repo_dir="$sandbox/repo"
-    mkdir -p "$repo_dir/scripts" "$repo_dir/stacks/infrastructure" "$repo_dir/config/glance/config" "$sandbox/bin"
+    mkdir -p "$repo_dir/scripts" "$repo_dir/stacks/infrastructure" "$repo_dir/config/glance/config" "$repo_dir/config/glance/assets" "$sandbox/bin"
     cp "$SCRIPTS_DIR/check_glance_config.sh" "$repo_dir/scripts/"
     printf 'services:\n  glance:\n    image: glanceapp/glance:v9.9.9\n' > "$repo_dir/stacks/infrastructure/compose.yml"
     printf '# a comment\nTZ=\nLAN_IP=\n' > "$repo_dir/stacks/common.env.example"
@@ -53,7 +53,12 @@ fail_with() {
 test_validates_with_the_pinned_image() {
     run_check || fail_with "expected success"
     grep -q ' glanceapp/glance:v9.9.9 config:validate$' "$DOCKER_CALLS_LOG" || fail_with "expected config:validate with the pinned image"
-    grep -q -- "-v $repo_dir/config/glance/config:/app/config:ro" "$DOCKER_CALLS_LOG" || fail_with "expected config/glance mounted read-only"
+    grep -q -- "-v $repo_dir/config/glance/config:/app/config:ro" "$DOCKER_CALLS_LOG" || fail_with "expected config/glance/config mounted read-only"
+}
+
+test_mounts_the_assets_glance_serves() {
+    run_check || fail_with "expected success"
+    grep -q -- "-v $repo_dir/config/glance/assets:/app/assets:ro" "$DOCKER_CALLS_LOG" || fail_with "expected config/glance/assets mounted read-only (assets-path must exist)"
 }
 
 test_passes_every_example_variable() {
@@ -80,6 +85,7 @@ test_fails_without_a_glance_image() {
 }
 
 run_test "it validates config/glance with the Glance image the stack pins" in_sandbox test_validates_with_the_pinned_image
+run_test "it mounts the assets folder Glance serves" in_sandbox test_mounts_the_assets_glance_serves
 run_test "it gives Glance every variable of the .env.example files" in_sandbox test_passes_every_example_variable
 run_test "it fills the login values Glance requires" in_sandbox test_fills_the_login_values_glance_requires
 run_test "it fails when the stack pins no Glance image" in_sandbox test_fails_without_a_glance_image
