@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-radarr-voq",
+  "name": "VOQ",
+  "includeCustomFormatWhenRenaming": true,
+  "specifications": [
+    {
+      "name": "Quebec Original Version",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "\\b(VOQ)\\b"
+      }
+    }
+  ]
+}

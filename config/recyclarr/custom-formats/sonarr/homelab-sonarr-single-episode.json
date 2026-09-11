@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-sonarr-single-episode",
+  "name": "Single Episode",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Single Episode",
+      "implementation": "ReleaseTypeSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 1
+      }
+    }
+  ]
+}

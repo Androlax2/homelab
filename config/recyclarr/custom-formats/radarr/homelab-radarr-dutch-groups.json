@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-radarr-dutch-groups",
+  "name": "Dutch Groups",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Dutch Groups",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "-CyTSuNee|-SHiTSoNy|-QoQ"
+      }
+    }
+  ]
+}

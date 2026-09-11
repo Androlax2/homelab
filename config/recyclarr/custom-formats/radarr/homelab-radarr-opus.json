@@ -1,0 +1,25 @@
+{
+  "trash_id": "homelab-radarr-opus",
+  "name": "Opus",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Opus",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "\\bOPUS(\\b|\\d)(?!.*[ ._-](\\d{3,4}p))"
+      }
+    },
+    {
+      "name": "Not OPUS Release Group",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": true,
+      "required": true,
+      "fields": {
+        "value": "OPUS"
+      }
+    }
+  ]
+}

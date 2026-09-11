@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-radarr-framestor",
+  "name": "FraMeSToR",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "FraMeSToR",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "^(FraMeSToR)$"
+      }
+    }
+  ]
+}

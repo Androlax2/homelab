@@ -1,0 +1,17 @@
+{
+  "trash_id": "homelab-sonarr-language-not-french",
+  "name": "Language: Not French",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Not French Language",
+      "implementation": "LanguageSpecification",
+      "negate": true,
+      "required": false,
+      "fields": {
+        "value": 2,
+        "exceptLanguage": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "trash_id": "homelab-sonarr-x266",
+  "name": "x266",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "x|h266",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "[xh][ ._-]?266|\\bVVC(\\b|\\d)"
+      }
+    },
+    {
+      "name": "Not Remux",
+      "implementation": "SourceSpecification",
+      "negate": true,
+      "required": true,
+      "fields": {
+        "value": 7
+      }
+    }
+  ]
+}

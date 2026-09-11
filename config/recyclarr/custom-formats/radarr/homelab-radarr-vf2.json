@@ -1,0 +1,25 @@
+{
+  "trash_id": "homelab-radarr-vf2",
+  "name": "VF2",
+  "includeCustomFormatWhenRenaming": true,
+  "specifications": [
+    {
+      "name": "VF2",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(VF2)\\b"
+      }
+    },
+    {
+      "name": "Both VFF and VFQ",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(VF(F|Q)[ .]VF(F|Q))\\b"
+      }
+    }
+  ]
+}

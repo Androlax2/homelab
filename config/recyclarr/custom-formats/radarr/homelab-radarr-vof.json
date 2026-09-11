@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-radarr-vof",
+  "name": "VOF",
+  "includeCustomFormatWhenRenaming": true,
+  "specifications": [
+    {
+      "name": "French Original Version",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "\\b(VOF)\\b"
+      }
+    }
+  ]
+}

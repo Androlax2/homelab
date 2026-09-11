@@ -7,9 +7,10 @@ Docker Compose setup for my Synology NAS. `main` is what runs: the NAS pulls it 
 `scripts/deploy.sh` (root, every 5 minutes) fast-forwards the NAS checkout to `origin/main`, then, for what changed
 since the last deployed commit (`.last-deployed`):
 
+- first the `*.before.sh` [one-time operations](#one-time-operations) not run yet
 - `stacks/<stack>/…` → `scripts/compose.sh <stack> up -d --remove-orphans`
 - `config/<name>/…` → `docker restart <name>`
-- then the [one-time operations](#one-time-operations) not run yet
+- then the other one-time operations not run yet
 
 A failure leaves the commit unmarked, so the next run retries it and DSM emails the output. A deleted stack is never
 torn down automatically: the run prints the `docker compose -p <stack> down` to run.
@@ -64,13 +65,43 @@ within 5 minutes. Both Opusline images update together. The Dependency Dashboard
 For commands that must run once on the NAS (fix a database, move a folder), like Laravel's one-time operations:
 
 ```sh
-scripts/new_operation.sh "reset immich password"    # creates operations/<timestamp>_reset_immich_password.sh
+scripts/new_operation.sh "reset immich password"             # runs after the stacks are updated
+scripts/new_operation.sh --before "create the foo folder"    # runs right after the pull, before any container changes
 ```
 
-Write the commands (container commands through `scripts/compose.sh <stack> exec -T …`), push. After the next deploy
-has updated the stacks, the NAS runs it as root from the repo root, in file name order, and records it in
-`.operations-done`. It never runs again, even if edited. A failing one blocks the deploy and is retried.
-`sudo scripts/run_operations.sh --list` shows what ran.
+Write the commands (container commands through `scripts/compose.sh <stack> exec -T …`), push. The next deploy runs
+it once, as root from the repo root, in file name order: `*.before.sh` operations before the env files are checked
+and before any container changes (to prepare a folder or a missing `.env` key), the others after the stacks are
+updated. It is then recorded in `.operations-done` and never runs again, even if edited. A failing one blocks the
+deploy and is retried. `sudo scripts/run_operations.sh --list` shows what ran.
+
+## Sonarr and Radarr settings
+
+Quality profiles and custom formats live in `config/recyclarr/`: profiles and scores in `configs/instances.yml`,
+each custom format as a JSON file in `custom-formats/<service>/`. `scripts/sync_arr_settings.sh` keeps them in sync
+both ways, every 15 minutes on the NAS:
+
+- changed in Sonarr/Radarr → pull request `arr-settings-sync` with the new files, merged once CI passes;
+- changed in the repo → applied to the apps by Recyclarr once deployed;
+- changed on both sides since the last sync → nothing is touched and the job fails (DSM emails you) until you pick
+  a side: `sudo scripts/sync_arr_settings.sh --take-apps` or `--take-repo`.
+
+Not synced: naming (Recyclarr only knows the TRaSH Guides' presets), and deleting a quality profile from the repo
+(delete it in the app). Edit the files the way the export writes them (a score of 0 is no entry): after applying,
+the sync reads the apps back and fails if they don't match the repo exactly. Before pushing a change,
+`scripts/preview_recyclarr.sh` (your computer) shows what it would do to the apps. `scripts/export_arr_settings.sh`
+(your computer) copies the apps into the repo by hand.
+
+## Backups
+
+- `scripts/backup_databases.sh <folder>`, nightly as root: consistent dumps of the Postgres databases (Immich,
+  Opusline, Prowlarr) and of Vaultwarden into `<folder>/<date>/`, 14 days kept. The other apps write their own
+  backups into their config folders.
+- Hyper Backup then copies the docker share (app data, and this checkout with its `.env` files) and that folder off
+  the NAS, with client-side encryption. Keep its encryption key outside the NAS: Vaultwarden runs on it.
+- Restore a Postgres dump: `gunzip -c <file>.sql.gz | sudo docker exec -i <container> psql -U <user> -d postgres`.
+  Vaultwarden: stop it, replace `db.sqlite3` in its data folder with the copy (delete `db.sqlite3-wal` and
+  `db.sqlite3-shm`), start it.
 
 ## Scripts
 
@@ -79,9 +110,12 @@ has updated the stacks, the NAS runs it as root from the repo root, in file name
 | `deploy.sh` | the 5-minute deploy (DSM Task Scheduler, root) |
 | `compose.sh <stack> …` | `docker compose` with the stack's env files |
 | `edit_env.sh <stack>\|common` | edit settings and secrets on the NAS |
-| `new_operation.sh`, `run_operations.sh` | one-time operations (`--list`, `--mark-all-done`) |
+| `new_operation.sh`, `run_operations.sh` | one-time operations (`--before`/`--after`, `--list`, `--mark-all-done`) |
 | `premigration_check.sh <stack>` | compare running containers with the compose file before replacing them |
 | `cleanup_deluge.sh` | remove orphaned torrents (scheduled; reads its API keys from `stacks/media/.env`, `DRY_RUN=1` to simulate) |
+| `backup_databases.sh <folder>` | nightly database dumps (see Backups) |
+| `sync_arr_settings.sh` | two-way sync of the Sonarr/Radarr settings (every 15 minutes, root; `--take-apps`, `--take-repo`) |
+| `export_arr_settings.sh`, `preview_recyclarr.sh` | copy Sonarr/Radarr settings into the repo, preview a sync (your computer) |
 | `check_stacks.sh`, `check_glance_config.sh` | CI checks, runnable locally |
 | `migration_helpers.sh` | helpers used once, for the migration from Portainer |
 
@@ -101,6 +135,13 @@ Compose). CI runs them, the two checks and gitleaks on every push and pull reque
 4. `sudo scripts/deploy.sh` once. It runs every one-time operation: on a rebuilt server whose data already went
    through them, run `sudo scripts/run_operations.sh --mark-all-done` first.
 5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
+6. Task Scheduler: `bash /volume1/docker/homelab/scripts/backup_databases.sh <folder>` as root nightly, email on
+   failure; then a Hyper Backup task (see Backups) scheduled after it.
+7. Settings sync: create a fine-grained GitHub token for this repository only, with Contents and Pull requests set
+   to read and write, and save it root-only on the NAS:
+   `sudo sh -c 'umask 077; cat > /volume1/docker/homelab/.github-token'` (paste, Enter, Ctrl-D). Turn on "Allow
+   auto-merge" in the repository settings. Then Task Scheduler: `bash /volume1/docker/homelab/scripts/sync_arr_settings.sh`
+   as root every 15 minutes, email on failure. When the token expires, the job fails until you save a new one.
 
 ## Security
 
@@ -120,7 +161,8 @@ gh api -X PUT repos/Androlax2/homelab/branches/main/protection --input - <<'JSON
 JSON
 ```
 
-The repo is public: secrets only in the NAS `.env` files, and security reviews are not committed.
+The repo is public: secrets only in the NAS `.env` files, and security reviews are not committed. The NAS holds a
+GitHub token for the settings sync: its pull requests may only change `config/recyclarr/` (CI checks it).
 
 ## Troubleshooting
 

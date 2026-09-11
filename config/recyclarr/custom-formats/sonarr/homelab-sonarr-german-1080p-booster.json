@@ -1,0 +1,36 @@
+{
+  "trash_id": "homelab-sonarr-german-1080p-booster",
+  "name": "German 1080p Booster",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "German",
+      "implementation": "LanguageSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": 4,
+        "exceptLanguage": false
+      }
+    },
+    {
+      "name": "Original Language",
+      "implementation": "LanguageSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": -2,
+        "exceptLanguage": false
+      }
+    },
+    {
+      "name": "1080p",
+      "implementation": "ResolutionSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": 1080
+      }
+    }
+  ]
+}

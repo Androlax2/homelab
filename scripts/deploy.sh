@@ -8,7 +8,8 @@ set -euo pipefail
 # successful run (commit stored in .last-deployed):
 #   stacks/<stack>/...  -> docker compose up -d for that stack
 #   config/<name>/...   -> docker restart <name>  (folder named after its container)
-# then runs the one-time operations this server hasn't run yet (run_operations.sh).
+# The one-time operations this server hasn't run yet (run_operations.sh) go around that:
+# *.before.sh right after the pull, before anything is checked or restarted; the others last.
 #
 # Nothing is touched until stacks/common.env and the .env of every stack about
 # to be deployed define each key of their .env.example: a missing key would
@@ -79,6 +80,8 @@ for stack in $changed_stacks; do
     fi
 done
 
+"$REPO_DIR/scripts/run_operations.sh" --before
+
 if [ ${#stacks_to_deploy[@]} -gt 0 ]; then
     assert_env_complete stacks/common.env stacks/common.env.example common
 fi
@@ -99,7 +102,7 @@ for container in $changed_configs; do
     docker restart "$container" > /dev/null
 done
 
-"$REPO_DIR/scripts/run_operations.sh"
+"$REPO_DIR/scripts/run_operations.sh" --after
 
 printf '%s\n' "$current_commit" > "$LAST_DEPLOYED_FILE"
 log "Deployed ${current_commit:0:7}."

@@ -1,0 +1,43 @@
+{
+  "trash_id": "homelab-sonarr-german-remux-tier-02",
+  "name": "German Remux Tier 02",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "MULTiPLEX",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(MULTiPLEX)$"
+      }
+    },
+    {
+      "name": "HQC",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(HQC)$"
+      }
+    },
+    {
+      "name": "HDSource",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(HDSource)$"
+      }
+    },
+    {
+      "name": "Remux",
+      "implementation": "SourceSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": 7
+      }
+    }
+  ]
+}

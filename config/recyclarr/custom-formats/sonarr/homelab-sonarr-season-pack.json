@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-sonarr-season-pack",
+  "name": "Season Pack",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Season Packs",
+      "implementation": "ReleaseTypeSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 3
+      }
+    }
+  ]
+}

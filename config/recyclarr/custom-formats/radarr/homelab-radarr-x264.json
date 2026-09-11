@@ -1,0 +1,25 @@
+{
+  "trash_id": "homelab-radarr-x264",
+  "name": "x264",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "x|h264",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "[xh][ ._-]?264|\\bAVC(\\b|\\d)"
+      }
+    },
+    {
+      "name": "Remux",
+      "implementation": "QualityModifierSpecification",
+      "negate": true,
+      "required": true,
+      "fields": {
+        "value": 5
+      }
+    }
+  ]
+}

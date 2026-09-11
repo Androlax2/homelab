@@ -1,13 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Creates operations/<timestamp>_<description>.sh from a template: a one-time
-# operation the server runs once, after its next deploy (see run_operations.sh).
+# Creates a one-time operation from a template: a script each server runs once, during
+# its next deploy (see run_operations.sh).
+#   operations/<timestamp>_<description>.sh          after the stacks are updated
+#   operations/<timestamp>_<description>.before.sh   with --before: right after the pull,
+#                                                    before any container changes
 #
-# Usage: scripts/new_operation.sh "reset immich password"
+# Usage: scripts/new_operation.sh [--before] "reset immich password"
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-description="${1:?Usage: scripts/new_operation.sh \"what the operation does\"}"
+USAGE='Usage: scripts/new_operation.sh [--before] "what the operation does"'
+
+moment_suffix=".sh"
+moment_text="after the stacks are deployed"
+if [ "${1:-}" = "--before" ]; then
+    moment_suffix=".before.sh"
+    moment_text="right after the pull, before any container changes"
+    shift
+fi
+
+description="${1:?$USAGE}"
 description=$(printf '%s' "$description" | tr '\n' ' ')
 slug=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+//; s/_+$//')
 if [ -z "$slug" ]; then
@@ -17,7 +30,7 @@ fi
 
 mkdir -p "$REPO_DIR/operations"
 # UTC, so that operations written on different machines still sort in the order they were written.
-operation_file="$REPO_DIR/operations/$(date -u '+%Y_%m_%d_%H%M%S')_$slug.sh"
+operation_file="$REPO_DIR/operations/$(date -u '+%Y_%m_%d_%H%M%S')_$slug$moment_suffix"
 if [ -e "$operation_file" ]; then
     echo "$operation_file already exists." >&2
     exit 1
@@ -29,7 +42,7 @@ set -euo pipefail
 
 # $description
 #
-# Runs once on each server, as root, from the repo root, after the stacks are deployed.
+# Runs once on each server, as root, from the repo root, $moment_text.
 # Exit non-zero to stop the deploy: this operation then runs again on the next deploy.
 # Once it has succeeded it never runs again, even if this file changes.
 #

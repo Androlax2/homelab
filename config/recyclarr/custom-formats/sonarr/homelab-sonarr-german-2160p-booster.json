@@ -1,0 +1,36 @@
+{
+  "trash_id": "homelab-sonarr-german-2160p-booster",
+  "name": "German 2160p Booster",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "German",
+      "implementation": "LanguageSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": 4,
+        "exceptLanguage": false
+      }
+    },
+    {
+      "name": "Original Language",
+      "implementation": "LanguageSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": -2,
+        "exceptLanguage": false
+      }
+    },
+    {
+      "name": "2160p",
+      "implementation": "ResolutionSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": 2160
+      }
+    }
+  ]
+}

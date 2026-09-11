@@ -1,0 +1,43 @@
+{
+  "trash_id": "homelab-sonarr-red",
+  "name": "RED",
+  "includeCustomFormatWhenRenaming": true,
+  "specifications": [
+    {
+      "name": "YouTube Red",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(red|youtube red)\\b[ ._-]web[ ._-]?(dl|rip)?\\b"
+      }
+    },
+    {
+      "name": "RED Rename",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\[(RED)\\b|\\b(RED)\\]"
+      }
+    },
+    {
+      "name": "WEBDL",
+      "implementation": "SourceSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 3
+      }
+    },
+    {
+      "name": "WEBRIP",
+      "implementation": "SourceSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 4
+      }
+    }
+  ]
+}

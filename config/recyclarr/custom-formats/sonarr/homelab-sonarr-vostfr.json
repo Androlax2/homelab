@@ -1,0 +1,25 @@
+{
+  "trash_id": "homelab-sonarr-vostfr",
+  "name": "VOSTFR",
+  "includeCustomFormatWhenRenaming": true,
+  "specifications": [
+    {
+      "name": "VOSTFR",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(VOST.*?FR(E|A)?)\\b"
+      }
+    },
+    {
+      "name": "SUBFRENCH",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(SUBFR(A|ENCH)?)\\b"
+      }
+    }
+  ]
+}

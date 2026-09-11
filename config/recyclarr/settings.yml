@@ -1,0 +1,11 @@
+# Recyclarr settings, mounted as /config/settings.yml. Custom formats that aren't TRaSH Guides
+# formats live in custom-formats/<service>/, one JSON file each.
+resource_providers:
+  - name: homelab-sonarr
+    type: custom-formats
+    path: /config/custom-formats/sonarr
+    service: sonarr
+  - name: homelab-radarr
+    type: custom-formats
+    path: /config/custom-formats/radarr
+    service: radarr

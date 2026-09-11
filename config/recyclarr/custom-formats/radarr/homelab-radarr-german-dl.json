@@ -1,0 +1,27 @@
+{
+  "trash_id": "homelab-radarr-german-dl",
+  "name": "German DL",
+  "includeCustomFormatWhenRenaming": true,
+  "specifications": [
+    {
+      "name": "German",
+      "implementation": "LanguageSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": 4,
+        "exceptLanguage": false
+      }
+    },
+    {
+      "name": "Original Language",
+      "implementation": "LanguageSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": -2,
+        "exceptLanguage": false
+      }
+    }
+  ]
+}

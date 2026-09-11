@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-sonarr-multi-episode",
+  "name": "Multi-Episode",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Multi-Episode",
+      "implementation": "ReleaseTypeSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 2
+      }
+    }
+  ]
+}

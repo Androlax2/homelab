@@ -4,16 +4,18 @@ set -euo pipefail
 # ============================================================
 # One-time operations: scripts in operations/ that each server runs exactly once,
 # in file name order (the names start with a timestamp, see new_operation.sh).
-# deploy.sh calls this after the stacks are updated.
+# deploy.sh runs them at two moments:
+#   --before   operations named *.before.sh: right after the pull, before any container changes
+#   --after    all the others: once the stacks are updated
 #
 # An operation is recorded in .operations-done only once it succeeded. The first
-# failure stops the run, and the next deploy retries it. A recorded operation never
-# runs again, even if its file changes: write a new one instead.
+# failure stops the run (and the deploy), and the next deploy retries it. A recorded
+# operation never runs again, even if its file changes: write a new one instead.
 #
-# Usage: scripts/run_operations.sh                  run the pending operations
-#        scripts/run_operations.sh --list           show every operation and whether it ran
-#        scripts/run_operations.sh --mark-all-done  record the pending operations as done
-#                                                   without running them (a rebuilt server)
+# Usage: scripts/run_operations.sh --before | --after  run the pending operations of that moment
+#        scripts/run_operations.sh --list              show every operation, its moment and whether it ran
+#        scripts/run_operations.sh --mark-all-done     record the pending operations as done without
+#                                                      running them (a rebuilt server)
 # ============================================================
 
 # DSM Task Scheduler's PATH does not include /usr/local/bin, where docker lives.
@@ -22,7 +24,7 @@ PATH="$PATH:/usr/local/bin"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OPERATIONS_DIR="$REPO_DIR/operations"
 DONE_FILE="$REPO_DIR/.operations-done"
-USAGE="Usage: scripts/run_operations.sh [--list | --mark-all-done]"
+USAGE="Usage: scripts/run_operations.sh --before | --after | --list | --mark-all-done"
 # shellcheck source=scripts/lib.sh
 source "$REPO_DIR/scripts/lib.sh"
 
@@ -46,22 +48,34 @@ operation_names() {
     done | LC_ALL=C sort
 }
 
+moment_of() {
+    case "$1" in
+        *.before.sh) echo before ;;
+        *) echo after ;;
+    esac
+}
+
 is_done() {
     [ -f "$DONE_FILE" ] && grep -qxF "$1" "$DONE_FILE"
 }
 
+# $1 = before, after or all
 pending_operations() {
-    local name
+    local moment="$1" name
     while read -r name; do
-        if ! is_done "$name"; then
+        if is_done "$name"; then
+            continue
+        fi
+        if [ "$moment" = all ] || [ "$(moment_of "$name")" = "$moment" ]; then
             printf '%s\n' "$name"
         fi
     done < <(operation_names)
 }
 
+# $1 = before or after
 run_pending_operations() {
     local pending name
-    pending=$(pending_operations)
+    pending=$(pending_operations "$1")
     if [ -z "$pending" ]; then
         return 0
     fi
@@ -79,19 +93,19 @@ run_pending_operations() {
 }
 
 list_operations() {
-    local name
+    local name state
     while read -r name; do
+        state=pending
         if is_done "$name"; then
-            echo "done     $name"
-        else
-            echo "pending  $name"
+            state=done
         fi
+        printf '%-8s %-7s %s\n' "$state" "$(moment_of "$name")" "$name"
     done < <(operation_names)
 }
 
 mark_all_done() {
     local pending name count=0
-    pending=$(pending_operations)
+    pending=$(pending_operations all)
     while read -r name; do
         [ -n "$name" ] || continue
         printf '%s\n' "$name" >> "$DONE_FILE"
@@ -101,9 +115,13 @@ mark_all_done() {
 }
 
 case "${1:-}" in
-    "")
+    --before)
         take_deploy_lock
-        run_pending_operations
+        run_pending_operations before
+        ;;
+    --after)
+        take_deploy_lock
+        run_pending_operations after
         ;;
     --list)
         list_operations

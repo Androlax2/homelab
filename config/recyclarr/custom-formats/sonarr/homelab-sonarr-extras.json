@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-sonarr-extras",
+  "name": "Extras",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Extras",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "(?<=\\bS\\d+\\b).*\\b(Extras|Bonus|Extended[ ._-]Clip)\\b"
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-sonarr-mpeg2",
+  "name": "MPEG2",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "MPEG2",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "MPEG[-.]?2"
+      }
+    }
+  ]
+}

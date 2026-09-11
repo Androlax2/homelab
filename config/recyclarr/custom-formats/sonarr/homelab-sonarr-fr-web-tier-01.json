@@ -1,0 +1,124 @@
+{
+  "trash_id": "homelab-sonarr-fr-web-tier-01",
+  "name": "FR WEB Tier 01",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "WEBDL",
+      "implementation": "SourceSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 3
+      }
+    },
+    {
+      "name": "WEBRIP",
+      "implementation": "SourceSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 4
+      }
+    },
+    {
+      "name": "BONBON",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(BONBON)$"
+      }
+    },
+    {
+      "name": "FCK",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(FCK)$"
+      }
+    },
+    {
+      "name": "FW",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(FW)$"
+      }
+    },
+    {
+      "name": "FRATERNiTY",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(FRATERNiTY)$"
+      }
+    },
+    {
+      "name": "MTDK",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(MTDK)$"
+      }
+    },
+    {
+      "name": "NoLo",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(NoLo)$"
+      }
+    },
+    {
+      "name": "PATOPESTO",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(PATOPESTO)$"
+      }
+    },
+    {
+      "name": "Psaro",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(Psaro)$"
+      }
+    },
+    {
+      "name": "SUPPLY",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(SUPPLY)$"
+      }
+    },
+    {
+      "name": "TFA",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(TFA)$"
+      }
+    },
+    {
+      "name": "TiNA",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(TiNA)$"
+      }
+    }
+  ]
+}

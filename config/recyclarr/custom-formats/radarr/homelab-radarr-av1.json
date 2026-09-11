@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-radarr-av1",
+  "name": "AV1",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "AV1",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "\\bAV1\\b"
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-radarr-720p",
+  "name": "720p",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "720p",
+      "implementation": "ResolutionSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": 720
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "trash_id": "homelab-sonarr-dscp",
+  "name": "DSCP",
+  "includeCustomFormatWhenRenaming": true,
+  "specifications": [
+    {
+      "name": "Discovery+",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b((dscp|dcp|disc)\\b|dscv\\+?)[ ._-]web[ ._-]?(dl|rip)?\\b"
+      }
+    },
+    {
+      "name": "DSCP Rename",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\[(DSCP)\\b|\\b(DSCP)\\]"
+      }
+    },
+    {
+      "name": "WEBDL",
+      "implementation": "SourceSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 3
+      }
+    },
+    {
+      "name": "WEBRIP",
+      "implementation": "SourceSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 4
+      }
+    }
+  ]
+}

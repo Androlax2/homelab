@@ -228,3 +228,32 @@ services:
     logging: *logging
     volumes:
       - ${DOCKERCONFDIR}/notifiarr:/config
+
+  # Applies config/recyclarr/ to Sonarr and Radarr, but only when scripts/sync_arr_settings.sh
+  # runs `recyclarr sync` in it: on its own the container just waits, so it never overwrites a
+  # change made in the apps before the sync has sent it to the repo.
+  recyclarr:
+    container_name: recyclarr
+    image: ghcr.io/recyclarr/recyclarr:8.7.2
+    entrypoint: ["/sbin/tini", "--", "sh", "-c", "while true; do sleep 3600; done"]
+    user: "${PUID}:${PGID}"
+    network_mode: host
+    labels:
+      glance.name: "Recyclarr"
+      glance.icon: "sh:recyclarr"
+      glance.description: "Sonarr/Radarr settings sync"
+      glance.category: "media"
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      - TZ=${TZ}
+      - SONARR_BASE_URL=http://localhost:8989
+      - RADARR_BASE_URL=http://localhost:7878
+      - SONARR_API_KEY=${SONARR_API_KEY}
+      - RADARR_API_KEY=${RADARR_API_KEY}
+    volumes:
+      # Writable state; the declared settings come from the repo, read-only.
+      - ${DOCKERCONFDIR}/recyclarr:/config
+      - ../../config/recyclarr/configs:/config/configs:ro
+      - ../../config/recyclarr/settings.yml:/config/settings.yml:ro
+      - ../../config/recyclarr/custom-formats:/config/custom-formats:ro

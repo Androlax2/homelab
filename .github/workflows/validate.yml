@@ -47,6 +47,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+      # The NAS's settings sync pushes with its own token: its pull requests may only touch config/recyclarr/.
+      - name: Settings-sync pull requests only change config/recyclarr
+        if: github.head_ref == 'arr-settings-sync'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          outside=$(git diff --name-only "origin/$BASE_REF...HEAD" | grep -v '^config/recyclarr/' || true)
+          if [ -n "$outside" ]; then
+            echo "This pull request comes from the NAS settings sync and may only change config/recyclarr/:"
+            echo "$outside"
+            exit 1
+          fi
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,61 @@
+{
+  "trash_id": "homelab-sonarr-lq-release-title",
+  "name": "LQ (Release Title)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "BEN THE MEN",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(BEN[ ._-]THE[ ._-]MEN)\\b"
+      }
+    },
+    {
+      "name": "BiTOR (2160p)",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?=.*?(\\b2160p\\b))(?=.*?(\\bBiTOR\\b))"
+      }
+    },
+    {
+      "name": "CREATiVE24",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(CREATiVE24)\\b"
+      }
+    },
+    {
+      "name": "Feranki1980",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(Feranki1980)\\b"
+      }
+    },
+    {
+      "name": "R&H",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(R&H)\\b"
+      }
+    },
+    {
+      "name": "TeeWee",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(TeeWee)\\b"
+      }
+    }
+  ]
+}
