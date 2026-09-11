@@ -23,6 +23,7 @@ flowchart LR
    - `stacks/<stack>/…` changed → `up -d --remove-orphans` for that stack. Compose recreates only the containers
      whose definition changed and pulls new image versions itself.
    - `config/<name>/…` changed → `docker restart <name>`.
+   - then it runs the [one-time operations](#one-time-operations) this server hasn't run yet.
 4. If a step fails, the commit is not marked as deployed: the next run tries again, and the scheduler reports the
    failure. A stack deleted from the repo is never torn down automatically; the run fails once and prints the
    command to run.
@@ -36,6 +37,7 @@ stacks/<stack>/compose.yml    one Compose project per folder, named after the fo
 stacks/<stack>/.env.example   the stack's own variables, without values (absent when it has none)
 stacks/<stack>/.env           their values, on the server only (gitignored)
 config/<name>/                files mounted into the container named <name>
+operations/                   one-time commands each server runs once, after a deploy
 scripts/                      deploy and maintenance scripts (see Scripts)
 scripts/tests/                tests for the scripts
 renovate.json                 image update rules
@@ -100,6 +102,26 @@ the hash in single quotes. The password went through your shell: clear it from t
 - Roll back with `git revert` and push. The previous image comes back, but an app that already migrated its
   database may refuse to start on an older version. Check the app's docs before reverting a major update.
 
+## One-time operations
+
+For commands that must run once on the server, not at every deploy: fix a database, move a folder, clean
+something up after an update. The same idea as Laravel's one-time operations.
+
+1. Create one: `scripts/new_operation.sh "reset immich password"` writes
+   `operations/<timestamp>_reset_immich_password.sh` from a template.
+2. Write its commands. Commands inside a container go through `scripts/compose.sh <stack> exec -T …`.
+3. Push. After the next deploy has updated the stacks, the server runs it, as root, from the repo root.
+
+The rules:
+- Operations run in file name order, so in the order they were created.
+- Each server records the ones that succeeded in `.operations-done` (gitignored). A recorded operation never runs
+  again, even if its file changes: write a new operation instead.
+- A failing operation stops the deploy, and the commit is not marked as deployed. The operation runs again on the
+  next deploy (5 minutes later), and the ones after it wait. Fix it by pushing a corrected version (it isn't
+  recorded yet, so the new version is what runs) or by deleting it.
+- Operations get no input: they must not ask questions.
+- `sudo scripts/run_operations.sh --list` shows which ones this server has run.
+
 ## Common tasks
 
 **Look at a stack.** `sudo scripts/compose.sh <stack> ps`, `sudo scripts/compose.sh <stack> logs -f <service>`.
@@ -132,6 +154,8 @@ create: mounts, Docker volumes, environment variable names, image versions.
 | `deploy.sh` | server, scheduler, root | pulls `main` and redeploys what changed |
 | `compose.sh <stack> …` | server, by hand and from the other scripts | `docker compose` with the stack's env files |
 | `edit_env.sh <stack>\|common` | server, by hand | edits settings and secrets, validates, redeploys |
+| `run_operations.sh` | server, from `deploy.sh` | runs the one-time operations not run yet; `--list`, `--mark-all-done` |
+| `new_operation.sh "<what it does>"` | anywhere, by hand | creates a one-time operation from the template |
 | `premigration_check.sh <stack>` | server, by hand | compares running containers with the compose file |
 | `cleanup_deluge.sh` | server, scheduler | removes orphaned torrents; needs `SONARR_API_KEY` and `RADARR_API_KEY` in its environment (source `stacks/media/.env`); `DRY_RUN=1` to simulate |
 | `check_stacks.sh` | anywhere, CI | validates every stack against the `.env.example` files and the privilege rules |
@@ -179,8 +203,9 @@ CI (`.github/workflows/validate.yml`) runs all of it on every push and pull requ
    (`config/prowlarr/mods`).
 3. `sudo scripts/edit_env.sh common`, then `sudo scripts/edit_env.sh <stack>` for every stack that has an
    `.env.example` (each one starts its stack). Generate the dashboard login first (see above).
-4. Run `sudo scripts/deploy.sh` once. The first run treats every file as changed, starts the remaining stacks and
-   writes `.last-deployed`.
+4. Run `sudo scripts/deploy.sh` once. The first run treats every file as changed, starts the remaining stacks, runs
+   every one-time operation and writes `.last-deployed`. If you are rebuilding a server whose data already went
+   through those operations, record them first instead: `sudo scripts/run_operations.sh --mark-all-done`.
 5. Schedule `scripts/deploy.sh` every 5 minutes as root, with a notification when it exits non-zero.
 
 ## Troubleshooting
@@ -196,3 +221,5 @@ CI (`.github/workflows/validate.yml`) runs all of it on every push and pull requ
   (`sudo scripts/compose.sh infrastructure logs glance`) names it.
 - **The deploy keeps failing on the same commit**: the scheduler's output has the error; nothing is marked as
   deployed until it succeeds.
+- **A one-time operation keeps failing**: its output is in the scheduler's email. Push a corrected version of the same
+  file (it isn't recorded as done yet) or delete it.

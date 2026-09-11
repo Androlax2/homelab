@@ -27,7 +27,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Syntax
         run: |
-          for script in scripts/*.sh scripts/tests/*.sh config/prowlarr/mods/*.sh; do
+          for script in scripts/*.sh scripts/tests/*.sh config/prowlarr/mods/*.sh operations/*.sh; do
+            [ -e "$script" ] || continue
             bash -n "$script"
           done
       - name: Tests

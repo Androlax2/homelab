@@ -34,7 +34,7 @@ STUB
     git init --quiet --bare --initial-branch=main "$sandbox/origin.git"
     git init --quiet --initial-branch=main "$sandbox/dev"
     mkdir -p "$sandbox/dev/scripts" "$sandbox/dev/stacks" "$sandbox/dev/config/glance"
-    cp "$SCRIPTS_DIR/deploy.sh" "$SCRIPTS_DIR/compose.sh" "$SCRIPTS_DIR/lib.sh" "$sandbox/dev/scripts/"
+    cp "$SCRIPTS_DIR/deploy.sh" "$SCRIPTS_DIR/compose.sh" "$SCRIPTS_DIR/run_operations.sh" "$SCRIPTS_DIR/lib.sh" "$sandbox/dev/scripts/"
     printf 'TZ=\n' > "$sandbox/dev/stacks/common.env.example"
     for stack in media photos; do
         mkdir -p "$sandbox/dev/stacks/$stack"
@@ -70,6 +70,15 @@ cleanup_sandbox() {
 push_edit() {
     printf '%s\n' "${2:-edit}" >> "$sandbox/dev/$1"
     git -C "$sandbox/dev" commit --quiet -am "edit $1"
+    git -C "$sandbox/dev" push --quiet origin main
+}
+
+# $1 = operation file name, $2 = its body. Commits and pushes it with whatever is already committed.
+push_operation() {
+    mkdir -p "$sandbox/dev/operations"
+    printf '#!/usr/bin/env bash\nset -euo pipefail\n%s\n' "$2" > "$sandbox/dev/operations/$1"
+    git -C "$sandbox/dev" add operations
+    git -C "$sandbox/dev" commit --quiet -m "operation $1"
     git -C "$sandbox/dev" push --quiet origin main
 }
 
@@ -195,6 +204,44 @@ test_incomplete_common_env_holds_every_stack() {
     assert_docker_calls ""
 }
 
+test_operation_runs_after_the_stacks() {
+    run_deploy
+    forget_docker_calls
+    printf 'edit\n' >> "$sandbox/dev/stacks/media/compose.yml"
+    git -C "$sandbox/dev" commit --quiet -am "edit media"
+    push_operation 2026_01_01_000000_mark.sh 'docker operation-ran'
+    run_deploy
+    assert_docker_calls "$(compose_up_call media)
+operation-ran"
+}
+
+test_operation_runs_only_once() {
+    run_deploy
+    push_operation 2026_01_01_000000_mark.sh 'docker operation-ran'
+    run_deploy
+    forget_docker_calls
+    push_edit stacks/media/compose.yml
+    run_deploy
+    assert_docker_calls "$(compose_up_call media)"
+}
+
+test_failed_operation_holds_the_commit_until_it_passes() {
+    run_deploy
+    export FLAKY_MARKER="$sandbox/flaky-can-pass"
+    push_operation 2026_01_01_000000_flaky.sh '[ -f "$FLAKY_MARKER" ]'
+    local pushed_commit
+    pushed_commit=$(git -C "$sandbox/dev" rev-parse HEAD)
+    expect_deploy_failure_mentioning "operation 2026_01_01_000000_flaky.sh failed"
+    if [ "$(cat "$sandbox/nas/.last-deployed")" = "$pushed_commit" ]; then
+        echo "      the commit must not be marked as deployed while its operation fails"
+        return 1
+    fi
+    touch "$FLAKY_MARKER"
+    run_deploy
+    [ "$(cat "$sandbox/nas/.last-deployed")" = "$pushed_commit" ] || { echo "      expected the commit to be deployed after the retry"; return 1; }
+    grep -qx '2026_01_01_000000_flaky.sh' "$sandbox/nas/.operations-done" || { echo "      expected the operation to be recorded"; return 1; }
+}
+
 run_test "it deploys every stack and restarts every config container on the first run" in_sandbox test_first_run_deploys_everything
 run_test "it does nothing when main has not moved" in_sandbox test_unchanged_main_does_nothing
 run_test "it only redeploys the stack whose files changed" in_sandbox test_stack_change_redeploys_only_that_stack
@@ -204,5 +251,8 @@ run_test "it reports a removed stack once and never tears it down" in_sandbox te
 run_test "it holds back a stack whose .env lacks a key from .env.example until the key is added" in_sandbox test_missing_key_holds_the_deploy_until_added
 run_test "it holds back a stack that has no .env" in_sandbox test_missing_env_file_holds_the_deploy
 run_test "it holds back every stack while common.env lacks a key from common.env.example" in_sandbox test_incomplete_common_env_holds_every_stack
+run_test "it runs a new one-time operation after bringing the stacks up" in_sandbox test_operation_runs_after_the_stacks
+run_test "it runs a one-time operation only once" in_sandbox test_operation_runs_only_once
+run_test "a failing one-time operation holds the commit back until it passes" in_sandbox test_failed_operation_holds_the_commit_until_it_passes
 
 finish_tests
