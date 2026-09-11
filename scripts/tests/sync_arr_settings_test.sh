@@ -67,7 +67,7 @@ STUB
     local dev="$sandbox/dev"
     mkdir -p "$dev/scripts" "$dev/config/recyclarr/configs" "$dev/config/recyclarr/custom-formats/sonarr" \
         "$dev/config/recyclarr/custom-formats/radarr"
-    cp "$SCRIPTS_DIR/sync_arr_settings.sh" "$SCRIPTS_DIR/lib.sh" "$dev/scripts/"
+    cp "$SCRIPTS_DIR/sync_arr_settings.sh" "$SCRIPTS_DIR/lib.sh" "$SCRIPTS_DIR/github.sh" "$dev/scripts/"
     # Test double for the real export: copies the fake apps' settings into --to.
     cat > "$dev/scripts/export_arr_settings.sh" <<'EXPORT'
 #!/usr/bin/env bash

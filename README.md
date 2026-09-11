@@ -88,8 +88,9 @@ both ways, every 15 minutes on the NAS:
 
 Not synced: naming (Recyclarr only knows the TRaSH Guides' presets), and deleting a quality profile from the repo
 (delete it in the app). Edit the files the way the export writes them (a score of 0 is no entry): after applying,
-the sync reads the apps back and fails if they don't match the repo exactly. Before pushing a change, `scripts/preview_recyclarr.sh` (your computer) shows what it would
-do to the apps. `scripts/export_arr_settings.sh` (your computer) copies the apps into the repo by hand.
+the sync reads the apps back and fails if they don't match the repo exactly. Before pushing a change,
+`scripts/preview_recyclarr.sh` (your computer) shows what it would do to the apps. `scripts/export_arr_settings.sh`
+(your computer) copies the apps into the repo by hand.
 
 ## Backups
 
