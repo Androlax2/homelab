@@ -1,0 +1,115 @@
+{
+  "trash_id": "homelab-radarr-fr-remux-tier-02",
+  "name": "FR Remux Tier 02",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Remux",
+      "implementation": "QualityModifierSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": 5
+      }
+    },
+    {
+      "name": "BDHD",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(BDHD)$"
+      }
+    },
+    {
+      "name": "FtLi",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(FtLi)$"
+      }
+    },
+    {
+      "name": "Goldenyann",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(Goldenyann)$"
+      }
+    },
+    {
+      "name": "HeavyWeight",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(HeavyWeight)$"
+      }
+    },
+    {
+      "name": "KTM",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(KTM)$"
+      }
+    },
+    {
+      "name": "MARBLECAKE",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(MARBLECAKE)$"
+      }
+    },
+    {
+      "name": "MUSTANG",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(MUSTANG)$"
+      }
+    },
+    {
+      "name": "Obi",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(Obi)$"
+      }
+    },
+    {
+      "name": "PEPiTE",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(PEPiTE)$"
+      }
+    },
+    {
+      "name": "QUEBEC63",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(Q(UEBE)?C63)$"
+      }
+    },
+    {
+      "name": "ROMKENT",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(ROMKENT)$"
+      }
+    }
+  ]
+}

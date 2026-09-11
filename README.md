@@ -72,6 +72,28 @@ has updated the stacks, the NAS runs it as root from the repo root, in file name
 `.operations-done`. It never runs again, even if edited. A failing one blocks the deploy and is retried.
 `sudo scripts/run_operations.sh --list` shows what ran.
 
+## Sonarr and Radarr settings
+
+Quality profiles and custom formats live in `config/recyclarr/`: profiles and scores in `configs/instances.yml`,
+each custom format as a JSON file in `custom-formats/<service>/`. The `recyclarr` container (media stack) pushes them
+into Sonarr and Radarr every night, overwriting UI changes to what it manages.
+
+- `scripts/preview_recyclarr.sh` (your computer) shows what a sync of the repo's files would change. Run it before
+  pushing a change, and push only when it shows what you expect.
+- `scripts/export_arr_settings.sh` (your computer) copies the apps' current profiles and custom formats into those
+  files, then runs the preview. Naming isn't copied: Recyclarr only accepts the TRaSH Guides' naming presets.
+
+## Backups
+
+- `scripts/backup_databases.sh <folder>`, nightly as root: consistent dumps of the Postgres databases (Immich,
+  Opusline, Prowlarr) and of Vaultwarden into `<folder>/<date>/`, 14 days kept. The other apps write their own
+  backups into their config folders.
+- Hyper Backup then copies the docker share (app data, and this checkout with its `.env` files) and that folder off
+  the NAS, with client-side encryption. Keep its encryption key outside the NAS: Vaultwarden runs on it.
+- Restore a Postgres dump: `gunzip -c <file>.sql.gz | sudo docker exec -i <container> psql -U <user> -d postgres`.
+  Vaultwarden: stop it, replace `db.sqlite3` in its data folder with the copy (delete `db.sqlite3-wal` and
+  `db.sqlite3-shm`), start it.
+
 ## Scripts
 
 | Script | Purpose |
@@ -82,6 +104,8 @@ has updated the stacks, the NAS runs it as root from the repo root, in file name
 | `new_operation.sh`, `run_operations.sh` | one-time operations (`--list`, `--mark-all-done`) |
 | `premigration_check.sh <stack>` | compare running containers with the compose file before replacing them |
 | `cleanup_deluge.sh` | remove orphaned torrents (scheduled; reads its API keys from `stacks/media/.env`, `DRY_RUN=1` to simulate) |
+| `backup_databases.sh <folder>` | nightly database dumps (see Backups) |
+| `export_arr_settings.sh`, `preview_recyclarr.sh` | copy Sonarr/Radarr settings into the repo, preview a sync (your computer) |
 | `check_stacks.sh`, `check_glance_config.sh` | CI checks, runnable locally |
 | `migration_helpers.sh` | helpers used once, for the migration from Portainer |
 
@@ -101,6 +125,8 @@ Compose). CI runs them, the two checks and gitleaks on every push and pull reque
 4. `sudo scripts/deploy.sh` once. It runs every one-time operation: on a rebuilt server whose data already went
    through them, run `sudo scripts/run_operations.sh --mark-all-done` first.
 5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
+6. Task Scheduler: `bash /volume1/docker/homelab/scripts/backup_databases.sh <folder>` as root nightly, email on
+   failure; then a Hyper Backup task (see Backups) scheduled after it.
 
 ## Security
 

@@ -1,0 +1,25 @@
+{
+  "trash_id": "homelab-sonarr-web-scene",
+  "name": "WEB Scene",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "DEFLATE",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(DEFLATE)$"
+      }
+    },
+    {
+      "name": "INFLATE",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(INFLATE)$"
+      }
+    }
+  ]
+}

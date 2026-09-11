@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-radarr-internal",
+  "name": "INTERNAL",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "INTERNAL",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(INTERNAL)\\b"
+      }
+    }
+  ]
+}

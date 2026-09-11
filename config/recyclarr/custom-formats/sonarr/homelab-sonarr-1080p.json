@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-sonarr-1080p",
+  "name": "1080p",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "1080p",
+      "implementation": "ResolutionSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": 1080
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-radarr-mp3",
+  "name": "MP3",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "MP3",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "mp3"
+      }
+    }
+  ]
+}

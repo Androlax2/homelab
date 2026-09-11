@@ -1,0 +1,106 @@
+{
+  "trash_id": "homelab-radarr-generated-dynamic-hdr",
+  "name": "Generated Dynamic HDR",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "BiTOR",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(BiTOR)$"
+      }
+    },
+    {
+      "name": "DepraveD",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(DepraveD)$"
+      }
+    },
+    {
+      "name": "Flights",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(Flights)$"
+      }
+    },
+    {
+      "name": "GuyZo",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(GuyZo|BR-GuyZo)$"
+      }
+    },
+    {
+      "name": "SasukeducK",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(SasukeducK)$"
+      }
+    },
+    {
+      "name": "tarunk9c",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(tarunk9c)$"
+      }
+    },
+    {
+      "name": "VD0N",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(VD0N)$"
+      }
+    },
+    {
+      "name": "VECTOR",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(VECTOR)$"
+      }
+    },
+    {
+      "name": "VisionXpert",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(VisionXpert)$"
+      }
+    },
+    {
+      "name": "HDR10+",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\bHDR10(\\+|P(lus)?\\b)"
+      }
+    },
+    {
+      "name": "DV",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(dv|dovi|dolby[ .]?v(ision)?)\\b"
+      }
+    }
+  ]
+}

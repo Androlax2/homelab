@@ -1,0 +1,61 @@
+{
+  "trash_id": "homelab-radarr-german-microsized",
+  "name": "German Microsized",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "FuN",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(FuN)$"
+      }
+    },
+    {
+      "name": "w00t",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(w00t)$"
+      }
+    },
+    {
+      "name": "GTF",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(GTF)$"
+      }
+    },
+    {
+      "name": "JellyfinPlex",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(JellyfinPlex)$"
+      }
+    },
+    {
+      "name": "BB",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(BB)$"
+      }
+    },
+    {
+      "name": "266ers",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "^(266ers)$"
+      }
+    }
+  ]
+}

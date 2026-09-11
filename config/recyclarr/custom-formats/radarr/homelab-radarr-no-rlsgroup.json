@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-radarr-no-rlsgroup",
+  "name": "No-RlsGroup",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "No Parsed Group",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": true,
+      "required": false,
+      "fields": {
+        "value": "."
+      }
+    }
+  ]
+}

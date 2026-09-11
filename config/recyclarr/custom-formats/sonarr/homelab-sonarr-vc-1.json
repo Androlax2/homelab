@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-sonarr-vc-1",
+  "name": "VC-1",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "VC-1",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "\\bVC[-_. ]?1\\b"
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-sonarr-flux",
+  "name": "FLUX",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "FLUX",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "^(FLUX)$"
+      }
+    }
+  ]
+}

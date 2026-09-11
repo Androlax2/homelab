@@ -1,0 +1,34 @@
+{
+  "trash_id": "homelab-sonarr-german-lq-release-title",
+  "name": "German LQ (release title)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "TVS iTunesHD",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "([._-])iTunes(?:HD|SD)?\\1.+?-TVS$"
+      }
+    },
+    {
+      "name": "Jellyfin-Plex",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "Jellyfin-Plex$"
+      }
+    },
+    {
+      "name": "Double German Tag",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "[._-]German[._-].+?[._-]?German$"
+      }
+    }
+  ]
+}

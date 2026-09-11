@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-radarr-hallowed",
+  "name": "hallowed",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "hallowed",
+      "implementation": "ReleaseGroupSpecification",
+      "negate": false,
+      "required": true,
+      "fields": {
+        "value": "^(hallowed)$"
+      }
+    }
+  ]
+}

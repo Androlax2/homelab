@@ -1,0 +1,16 @@
+{
+  "trash_id": "homelab-sonarr-freeleech",
+  "name": "FreeLeech",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "FreeLeech",
+      "implementation": "IndexerFlagSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 1
+      }
+    }
+  ]
+}

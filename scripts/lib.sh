@@ -2,6 +2,16 @@
 
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 
+# Asks for an API key (hidden input) unless the variable already holds one, then exports it.
+# $1 = variable name, $2 = what the key is for
+ask_api_key() {
+    if [ -z "${!1:-}" ]; then
+        read -rsp "$2 API key: " "${1?}"
+        echo
+    fi
+    export "${1?}"
+}
+
 # Prints the keys a dotenv file defines, one per line, sorted.
 env_keys() {
     sed -n 's/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' "$1" | sort -u

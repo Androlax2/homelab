@@ -1,0 +1,25 @@
+{
+  "trash_id": "homelab-radarr-line-mic-dubbed",
+  "name": "Line/Mic Dubbed",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Line Dubbed",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(LD|AC3LD|Line[ .-]?Dubbed)\\b"
+      }
+    },
+    {
+      "name": "Mic Dubbed",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(MD|AC3MD|Mic[ .-]?Dubbed)\\b"
+      }
+    }
+  ]
+}

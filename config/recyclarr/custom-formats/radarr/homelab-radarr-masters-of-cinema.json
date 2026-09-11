@@ -1,0 +1,25 @@
+{
+  "trash_id": "homelab-radarr-masters-of-cinema",
+  "name": "Masters of Cinema",
+  "includeCustomFormatWhenRenaming": true,
+  "specifications": [
+    {
+      "name": "Masters of Cinema",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(Masters[ .-]?Of[ .-]?Cinema)(\\b|\\d)"
+      }
+    },
+    {
+      "name": "MoC",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(MoC)\\b"
+      }
+    }
+  ]
+}
