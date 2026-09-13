@@ -172,7 +172,7 @@ services:
 
   radarr:
     container_name: radarr
-    image: lscr.io/linuxserver/radarr:6.3.0.10514-ls315
+    image: lscr.io/linuxserver/radarr:6.3.0.10514-ls316
     labels:
       glance.name: "Radarr"
       glance.icon: "sh:radarr"
