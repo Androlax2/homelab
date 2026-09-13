@@ -7,7 +7,7 @@ x-logging: &logging
 services:
   vaultwarden:
     container_name: vaultwarden
-    image: vaultwarden/server:1.37.2
+    image: vaultwarden/server:1.37.3
     labels:
       glance.name: "Vaultwarden"
       glance.icon: "sh:vaultwarden"
