@@ -136,16 +136,24 @@ Once, on the NAS, as root:
    sudo ssh-keygen -t ed25519 -N '' -C jeancloud-restic -f /volume1/docker/appdata/restic/ssh/id_ed25519
    ```
 2. Add the public key to the Storage Box's `.ssh/authorized_keys` (with SFTP, from a machine that can already log in),
-   and in Hetzner Console keep "SSH Support" and "External Reachability" on.
-3. `/volume1/docker/appdata/restic/ssh/config` (mode 600), then trust the host key:
+   as the usual one-line OpenSSH key, and in Hetzner Console keep "SSH Support" and "External Reachability" on.
+3. `/volume1/docker/appdata/restic/ssh/config` (mode 600; `IdentityFile` is the path inside the container). Port 23:
+   the Storage Box only accepts one-line OpenSSH keys there, port 22 wants them in RFC4716 format:
    ```
    Host storagebox
        HostName u000000.your-storagebox.de
+       Port 23
        User u000000
        IdentityFile /root/.ssh/id_ed25519
    ```
+   Then connect once, which records the host key (DSM has no `ssh-keyscan`) and checks the key login:
    ```sh
-   sudo sh -c 'ssh-keyscan u000000.your-storagebox.de > /volume1/docker/appdata/restic/ssh/known_hosts'
+   echo 'ls -la' | sudo sftp -b - \
+     -F /volume1/docker/appdata/restic/ssh/config \
+     -i /volume1/docker/appdata/restic/ssh/id_ed25519 \
+     -o StrictHostKeyChecking=accept-new \
+     -o UserKnownHostsFile=/volume1/docker/appdata/restic/ssh/known_hosts \
+     storagebox
    ```
 4. `sudo scripts/edit_env.sh common` (`BACKUPDIR`), then `sudo scripts/edit_env.sh backup` (`RESTIC_REPOSITORY`,
    `RESTIC_PASSWORD`, `HOMESDIR`). Keep `RESTIC_PASSWORD` outside the NAS: Vaultwarden runs on it.
