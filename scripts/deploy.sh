@@ -100,7 +100,7 @@ done
 
 for stack in "${stacks_to_deploy[@]}"; do
     log "Stack $stack: compose up"
-    "$REPO_DIR/scripts/compose.sh" "$stack" up -d --remove-orphans
+    compose_up_stack "$REPO_DIR" "$stack"
 done
 
 for container in $changed_configs; do

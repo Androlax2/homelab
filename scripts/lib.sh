@@ -36,6 +36,20 @@ required_env_value() {
     printf '%s\n' "$value"
 }
 
+# Brings <stack> up with scripts/compose.sh, unless none of its services runs by default: when all
+# of them are behind a profile (like the backup's restic, only run on demand), there is nothing to
+# bring up, and `compose up` would fail with "no service selected".
+# $1 = repo dir, $2 = stack
+compose_up_stack() {
+    local repo_dir="$1" stack="$2" services
+    services=$("$repo_dir/scripts/compose.sh" "$stack" config --services)
+    if [ -z "$services" ]; then
+        log "Stack $stack: all its services are behind a profile, nothing to bring up"
+        return 0
+    fi
+    "$repo_dir/scripts/compose.sh" "$stack" up -d --remove-orphans
+}
+
 # Prints the keys a dotenv file defines, one per line, sorted.
 env_keys() {
     sed -n 's/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' "$1" | sort -u

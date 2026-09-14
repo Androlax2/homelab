@@ -138,5 +138,5 @@ cp "$draft" "$env_file"
 chmod 600 "$env_file"
 log "$env_file updated. Redeploying: ${affected_stacks[*]}"
 for stack in "${affected_stacks[@]}"; do
-    "$REPO_DIR/scripts/compose.sh" "$stack" up -d --remove-orphans
+    compose_up_stack "$REPO_DIR" "$stack"
 done

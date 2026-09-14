@@ -8,7 +8,8 @@ Docker Compose setup for my Synology NAS. `main` is what runs: the NAS pulls it 
 since the last deployed commit (`.last-deployed`):
 
 - first the `*.before.sh` [one-time operations](#one-time-operations) not run yet
-- `stacks/<stack>/…` → `scripts/compose.sh <stack> up -d --remove-orphans`
+- `stacks/<stack>/…` → `scripts/compose.sh <stack> up -d --remove-orphans`, skipped for a stack whose services all sit behind a
+  profile (`backup`: nothing to run until asked)
 - `config/<name>/…` → `docker restart <name>`
 - then the other one-time operations not run yet
 
@@ -130,9 +131,11 @@ emails you, then stays quiet until backups succeed again. It never holds a deplo
 
 Once, on the NAS, as root:
 
-1. SSH key for the Storage Box, readable by root only:
+1. The folders the backup stack mounts (Synology's Docker refuses to start a container whose bind-mounted folder
+   doesn't exist, so create `BACKUPDIR` too), then the SSH key for the Storage Box, readable by root only:
    ```sh
-   sudo mkdir -p /volume1/docker/appdata/restic/ssh /volume1/docker/appdata/restic/cache
+   sudo mkdir -p /volume1/docker/appdata/restic/ssh /volume1/docker/appdata/restic/cache /volume1/backup/databases
+   sudo chmod 700 /volume1/docker/appdata/restic/ssh /volume1/backup/databases
    sudo ssh-keygen -t ed25519 -N '' -C jeancloud-restic -f /volume1/docker/appdata/restic/ssh/id_ed25519
    ```
 2. Add the public key to the Storage Box's `.ssh/authorized_keys` (with SFTP, from a machine that can already log in),

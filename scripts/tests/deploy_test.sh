@@ -23,9 +23,16 @@ create_sandbox() {
     export DOCKER_CALLS_LOG="$sandbox/docker-calls.log"
 
     mkdir "$sandbox/bin"
+    # `config --services` lists one service, except for the stacks in STUB_PROFILE_ONLY_STACKS,
+    # whose services are all behind a profile.
     cat > "$sandbox/bin/docker" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$DOCKER_CALLS_LOG"
+if [[ "$*" == *" config --services" ]]; then
+    [[ "$*" =~ stacks/([^/]+)/compose.yml ]]
+    [[ " ${STUB_PROFILE_ONLY_STACKS:-} " == *" ${BASH_REMATCH[1]} "* ]] || echo app
+    exit 0
+fi
 [ "${DOCKER_SHOULD_FAIL:-0}" != "1" ]
 STUB
     chmod +x "$sandbox/bin/docker"
@@ -108,7 +115,8 @@ assert_docker_calls() {
     local expected_calls="$1"
     local actual_calls=""
     if [ -f "$DOCKER_CALLS_LOG" ]; then
-        actual_calls=$(cat "$DOCKER_CALLS_LOG")
+        # The `config --services` look-ups before each compose up are not what the tests check.
+        actual_calls=$(grep -v ' config --services$' "$DOCKER_CALLS_LOG" || true)
     fi
     if [ "$actual_calls" != "$expected_calls" ]; then
         printf '      expected docker calls:\n%s\n      actual docker calls:\n%s\n' "$expected_calls" "$actual_calls"
@@ -125,6 +133,23 @@ expect_deploy_failure_mentioning() {
         echo "      expected the output to mention: $1"
         return 1
     fi
+}
+
+test_profile_only_stack_is_skipped_and_the_others_deploy() {
+    mkdir -p "$sandbox/dev/stacks/backup"
+    printf 'services: {}\n' > "$sandbox/dev/stacks/backup/compose.yml"
+    git -C "$sandbox/dev" add -A
+    git -C "$sandbox/dev" commit --quiet -m "add backup stack"
+    git -C "$sandbox/dev" push --quiet origin main
+    export STUB_PROFILE_ONLY_STACKS=backup
+    run_deploy
+    assert_docker_calls "$(compose_up_call media)
+$(compose_up_call photos)
+restart glance"
+    [ "$(cat "$sandbox/nas/.last-deployed")" = "$(git -C "$sandbox/dev" rev-parse HEAD)" ] \
+        || { echo "      the commit must be marked as deployed"; return 1; }
+    grep -q 'Stack backup: all its services are behind a profile' "$sandbox/deploy.out" \
+        || { echo "      expected the skipped stack to be logged"; return 1; }
 }
 
 test_stale_backups_are_reported_once_without_holding_the_deploy() {
@@ -281,6 +306,7 @@ test_failed_before_operation_changes_no_container() {
 
 run_test "it deploys every stack and restarts every config container on the first run" in_sandbox test_first_run_deploys_everything
 run_test "it reports failing database backups once, without holding back the deploy" in_sandbox test_stale_backups_are_reported_once_without_holding_the_deploy
+run_test "it skips a stack whose services are all behind a profile, and deploys the others" in_sandbox test_profile_only_stack_is_skipped_and_the_others_deploy
 run_test "it does nothing when main has not moved" in_sandbox test_unchanged_main_does_nothing
 run_test "it only redeploys the stack whose files changed" in_sandbox test_stack_change_redeploys_only_that_stack
 run_test "it restarts the container named after a changed config folder" in_sandbox test_config_change_restarts_its_container
