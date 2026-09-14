@@ -27,6 +27,10 @@ create_sandbox() {
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$DOCKER_CALLS_LOG"
 case "$*" in
+    *" config --services")
+        # STUB_PROFILE_ONLY=1: every service of the stack is behind a profile.
+        [ "${STUB_PROFILE_ONLY:-0}" = "1" ] || echo app
+        ;;
     *" config --format json")
         if [ "${DOCKER_CONFIG_SHOULD_FAIL:-0}" = "1" ]; then
             echo "invalid interpolation format" >&2
@@ -73,6 +77,13 @@ fail_with_output() {
     echo "      $1"
     sed 's/^/      edit_env.sh | /' "$sandbox/output"
     return 1
+}
+
+test_profile_only_stack_is_saved_without_compose_up() {
+    export STUB_PROFILE_ONLY=1
+    run_edit app 'sed -i "s/^API_KEY=.*/API_KEY=new/" "$1"' || fail_with_output "expected success"
+    grep -qx 'API_KEY=new' "$stack_dir/.env" || fail_with_output ".env was not updated"
+    [ "$(redeploy_count app)" -eq 0 ] || fail_with_output "a stack with nothing to run must not be brought up"
 }
 
 test_valid_edit_replaces_env_and_redeploys() {
@@ -144,6 +155,7 @@ test_stack_without_env_example_is_refused() {
 }
 
 run_test "it replaces .env, keeps the previous one and redeploys the stack" in_sandbox test_valid_edit_replaces_env_and_redeploys
+run_test "it saves the .env of a stack whose services are all behind a profile without bringing it up" in_sandbox test_profile_only_stack_is_saved_without_compose_up
 run_test "it keeps .env and .env.previous readable by their owner only" in_sandbox test_secrets_stay_owner_only
 run_test "it does not redeploy when nothing changed" in_sandbox test_unchanged_draft_does_not_redeploy
 run_test "it starts from .env.example when the stack has no .env yet" in_sandbox test_missing_env_starts_from_example
