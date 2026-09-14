@@ -7,6 +7,8 @@ set -euo pipefail
 #   - every ${VAR} it uses is listed in an .env.example
 #   - no service runs privileged, and only the services in DOCKER_SOCKET_SERVICES mount
 #     the Docker socket: whoever holds it is root on the server
+#   - every service with a writable volume has a homelab.backup label saying how
+#     scripts/backup_databases.sh backs it up, so a new app's database can't be forgotten
 #
 # Usage: bash scripts/check_stacks.sh
 
@@ -19,6 +21,7 @@ DOCKER_SOCKET_SERVICES="portainer docker-socket-proxy"
 # Values the example files leave empty but compose can't accept empty: an empty DOCKERSTORAGEDIR
 # turns "${DOCKERSTORAGEDIR}:/data" into an invalid ":/data".
 export DOCKERCONFDIR=/check/config DOCKERSTORAGEDIR=/check/storage FILEBROWSER_ROOT=/check/filebrowser
+export BACKUPDIR=/check/backups HOMESDIR=/check/homes
 
 # Prints one line per service that breaks the privilege rules above.
 privilege_violations() {
@@ -29,6 +32,21 @@ privilege_violations() {
           (select(any(.value.volumes[]?; .source == "/var/run/docker.sock"))
            | select(.key | IN($allowed_services[]) | not)
            | "\(.key): mounts the Docker socket (allowed only for: \($allowed_services | join(", ")))")'
+}
+
+# Prints one line per service with a writable volume but no valid homelab.backup label.
+backup_label_violations() {
+    jq -r --arg kinds "$BACKUP_KINDS" '
+        ($kinds | split(" ")) as $backup_kinds
+        | .services | to_entries[]
+        | select(any(.value.volumes[]?; .read_only != true))
+        | .key as $service
+        | (.value.labels["homelab.backup"] // "") as $kind
+        | if $kind == "" then
+            "\($service): has a writable volume but no homelab.backup label (one of: \($backup_kinds | join(", ")))"
+          elif ($kind | IN($backup_kinds[]) | not) then
+            "\($service): unknown homelab.backup label \"\($kind)\" (one of: \($backup_kinds | join(", ")))"
+          else empty end'
 }
 
 failed_stacks=0
@@ -45,6 +63,7 @@ for compose_file in "$REPO_DIR"/stacks/*/compose.yml; do
         problems=$({
             grep 'variable is not set' "$warnings_file" || true
             privilege_violations <<<"$config_json"
+            backup_label_violations <<<"$config_json"
         })
     else
         problems=$(cat "$warnings_file")

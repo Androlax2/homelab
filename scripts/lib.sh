@@ -2,6 +2,10 @@
 
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 
+# Values the homelab.backup label accepts, i.e. how scripts/backup_databases.sh backs a service up.
+# scripts/check_stacks.sh requires the label on every service with a writable volume.
+BACKUP_KINDS="postgres sqlite bolt none"
+
 # Asks for an API key (hidden input) unless the variable already holds one, then exports it.
 # $1 = variable name, $2 = what the key is for
 ask_api_key() {
@@ -16,6 +20,20 @@ ask_api_key() {
 # $1 = file, $2 = key
 env_value() {
     sed -n "s/^$2=//p" "$1" | tail -n 1 | sed -E "s/^'(.*)'\$/\\1/; s/^\"(.*)\"\$/\\1/"
+}
+
+# Prints the value of <key> in <file>, or logs how to set it and fails when it is empty or absent.
+# $1 = file, $2 = key, $3 = what to pass to scripts/edit_env.sh to set it
+required_env_value() {
+    local value=""
+    if [ -f "$1" ]; then
+        value=$(env_value "$1" "$2")
+    fi
+    if [ -z "$value" ]; then
+        log "ERROR: $2 is not set in $1. Add it with scripts/edit_env.sh $3" >&2
+        return 1
+    fi
+    printf '%s\n' "$value"
 }
 
 # Prints the keys a dotenv file defines, one per line, sorted.
@@ -40,12 +58,14 @@ stack_config_json() {
     cp "$common_env" "$mirror_dir/stacks/common.env"
     cp "$stack_env" "$mirror_dir/stacks/$stack/.env"
     # The mirror keeps the repo layout, so relative env_file paths (.env, ../common.env) resolve inside it.
+    # --profile '*': without it, services behind a profile (like the backup's restic) are left out of the output.
     docker compose \
         --env-file "$mirror_dir/stacks/common.env" \
         --env-file "$mirror_dir/stacks/$stack/.env" \
         -f "$repo_dir/stacks/$stack/compose.yml" \
         --project-directory "$mirror_dir/stacks/$stack" \
         -p "$stack" \
+        --profile '*' \
         config --format json || status=$?
     rm -rf "$mirror_dir"
     return "$status"

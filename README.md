@@ -13,7 +13,8 @@ since the last deployed commit (`.last-deployed`):
 - then the other one-time operations not run yet
 
 A failure leaves the commit unmarked, so the next run retries it and DSM emails the output. A deleted stack is never
-torn down automatically: the run prints the `docker compose -p <stack> down` to run.
+torn down automatically: the run prints the `docker compose -p <stack> down` to run. Every run also checks that the
+nightly database backup still succeeds (see [Backups](#backups)).
 
 ## Layout
 
@@ -38,6 +39,8 @@ The real `stacks/common.env` and `stacks/<stack>/.env` exist only on the NAS (gi
 - Images are pinned to exact versions.
 - Only `portainer` and `docker-socket-proxy` may mount the Docker socket, and nothing runs privileged (CI checks it;
   allowlist in `scripts/check_stacks.sh`).
+- Every service with a writable volume has a `homelab.backup` label saying how its data is backed up (CI checks it;
+  see [Backups](#backups)).
 
 ## Settings and secrets
 
@@ -94,14 +97,86 @@ the sync reads the apps back and fails if they don't match the repo exactly. Bef
 
 ## Backups
 
-- `scripts/backup_databases.sh <folder>`, nightly as root: consistent dumps of the Postgres databases (Immich,
-  Opusline, Prowlarr) and of Vaultwarden into `<folder>/<date>/`, 14 days kept. The other apps write their own
-  backups into their config folders.
-- Hyper Backup then copies the docker share (app data, and this checkout with its `.env` files) and that folder off
-  the NAS, with client-side encryption. Keep its encryption key outside the NAS: Vaultwarden runs on it.
-- Restore a Postgres dump: `gunzip -c <file>.sql.gz | sudo docker exec -i <container> psql -U <user> -d postgres`.
-  Vaultwarden: stop it, replace `db.sqlite3` in its data folder with the copy (delete `db.sqlite3-wal` and
-  `db.sqlite3-shm`), start it.
+`scripts/backup_nas.sh` runs every night as root and takes the NAS's own data off the NAS, to the Hetzner Storage Box:
+
+1. `scripts/backup_databases.sh` dumps every database into `${BACKUPDIR}/<date>/` (14 days kept), by label, see below.
+2. restic, from `stacks/backup`, backs up the photos, the app data, those dumps, the home folders and this checkout
+   (its `.env` files included), minus [`stacks/backup/excludes.txt`](stacks/backup/excludes.txt): live database
+   folders, caches and what the apps regenerate. Encrypted with `RESTIC_PASSWORD`.
+3. On Sundays, restic forgets old snapshots (7 daily, 4 weekly, 12 monthly), prunes, and reads back a 5% sample.
+
+Movies, TV and torrents are left out: they are re-downloadable and don't fit the Storage Box.
+
+### Database labels
+
+Every service with a writable volume has a `homelab.backup` label. CI fails until a new one has it.
+
+| Label | What `backup_databases.sh` does | Used by |
+|---|---|---|
+| `postgres` | `pg_dumpall` into `<container>.sql.gz`, kept only if the dump is complete | Immich, Opusline, Prowlarr databases |
+| `sqlite` | copies every SQLite file in the container's `${DOCKERCONFDIR}` folders with SQLite's online backup, as the file's owner, under the same relative path; skips an app's own dated copies (`name-YYYY-MM-DD`) | Vaultwarden, Sonarr, Radarr, Plex, Tautulli, Seerr, Maintainerr |
+| `bolt` | stops the container, archives its `${DOCKERCONFDIR}` folders into `<container>.tar.gz`, starts it again (seconds of downtime) | Portainer, Filebrowser |
+| `none` | nothing: plain files restic copies as they are, or data not worth keeping; a comment beside the label says which | everything else with a writable volume |
+
+The job fails if a `sqlite` container holds no SQLite file.
+
+### Noticing a broken backup
+
+Every deploy run checks that both backups succeeded in the last 26 hours: `${BACKUPDIR}/last-success` for the dumps,
+`${BACKUPDIR}/offsite-last-success` for restic. When one didn't, or never did, the deploy run fails once, so DSM
+emails you, then stays quiet until backups succeed again. It never holds a deploy back.
+
+### Setup
+
+Once, on the NAS, as root:
+
+1. SSH key for the Storage Box, readable by root only:
+   ```sh
+   sudo mkdir -p /volume1/docker/appdata/restic/ssh /volume1/docker/appdata/restic/cache
+   sudo ssh-keygen -t ed25519 -N '' -C jeancloud-restic -f /volume1/docker/appdata/restic/ssh/id_ed25519
+   ```
+2. Add the public key to the Storage Box's `.ssh/authorized_keys` (with SFTP, from a machine that can already log in),
+   as the usual one-line OpenSSH key, and in Hetzner Console keep "SSH Support" and "External Reachability" on.
+3. `/volume1/docker/appdata/restic/ssh/config` (mode 600; `IdentityFile` is the path inside the container). Port 23:
+   the Storage Box only accepts one-line OpenSSH keys there, port 22 wants them in RFC4716 format:
+   ```
+   Host storagebox
+       HostName u000000.your-storagebox.de
+       Port 23
+       User u000000
+       IdentityFile /root/.ssh/id_ed25519
+   ```
+   Then connect once, which records the host key (DSM has no `ssh-keyscan`) and checks the key login:
+   ```sh
+   echo 'ls -la' | sudo sftp -b - \
+     -F /volume1/docker/appdata/restic/ssh/config \
+     -i /volume1/docker/appdata/restic/ssh/id_ed25519 \
+     -o StrictHostKeyChecking=accept-new \
+     -o UserKnownHostsFile=/volume1/docker/appdata/restic/ssh/known_hosts \
+     storagebox
+   ```
+4. `sudo scripts/edit_env.sh common` (`BACKUPDIR`), then `sudo scripts/edit_env.sh backup` (`RESTIC_REPOSITORY`,
+   `RESTIC_PASSWORD`, `HOMESDIR`). Keep `RESTIC_PASSWORD` outside the NAS: Vaultwarden runs on it.
+5. Create the repository: `sudo scripts/compose.sh backup run --rm -T restic init`.
+6. Task Scheduler: `bash /volume1/docker/homelab/scripts/backup_nas.sh` as root daily at 02:30, email on failure.
+   Run it once by hand: the first upload takes hours, and a run still going the next night is skipped.
+
+### Restore
+
+Every restic command runs through the stack, e.g. `sudo scripts/compose.sh backup run --rm -T restic snapshots`.
+
+- Files: mount a folder to restore into, e.g.
+  `sudo scripts/compose.sh backup run --rm -T -v /volume1/restore:/restore restic restore latest --target /restore --include /source/appdata/sonarr`.
+  Snapshot paths start with `/source/photos`, `/source/appdata`, `/source/databases`, `/source/homes` and
+  `/source/homelab`.
+- Postgres: restore the dump from `/source/databases/<date>/`, then
+  `gunzip -c <file>.sql.gz | sudo docker exec -i <container> psql -U <user> -d postgres`.
+- SQLite: stop the container, replace the database file with its copy from `/source/databases/<date>/`, delete its
+  `-wal` and `-shm` files, start it. The copies under `/source/appdata` were taken live and may be inconsistent.
+- Bolt: stop the container, `sudo tar -xzf <container>.tar.gz -C ${DOCKERCONFDIR}` (it overwrites the folder's
+  files), start it.
+- Whole NAS lost: on any machine with Docker, run `restic/restic` with the same `.ssh` folder and `RESTIC_PASSWORD`
+  (from outside the NAS) and restore `/source` first; this checkout and its `.env` files come back with it.
 
 ## Scripts
 
@@ -113,7 +188,9 @@ the sync reads the apps back and fails if they don't match the repo exactly. Bef
 | `new_operation.sh`, `run_operations.sh` | one-time operations (`--before`/`--after`, `--list`, `--mark-all-done`) |
 | `premigration_check.sh <stack>` | compare running containers with the compose file before replacing them |
 | `cleanup_deluge.sh` | remove orphaned torrents (scheduled; reads its API keys from `stacks/media/.env`, `DRY_RUN=1` to simulate) |
-| `backup_databases.sh <folder>` | nightly database dumps (see Backups) |
+| `backup_nas.sh` | nightly: database dumps, then the restic backup to the Storage Box (see Backups) |
+| `backup_databases.sh` | the database dumps, by `homelab.backup` label (run by `backup_nas.sh`) |
+| `check_backups.sh` | fails once when a backup is over 26 hours old (run by `deploy.sh`) |
 | `sync_arr_settings.sh` | two-way sync of the Sonarr/Radarr settings (every 15 minutes, root; `--take-apps`, `--take-repo`) |
 | `export_arr_settings.sh`, `preview_recyclarr.sh` | copy Sonarr/Radarr settings into the repo, preview a sync (your computer) |
 | `check_stacks.sh`, `check_glance_config.sh` | CI checks, runnable locally |
@@ -135,8 +212,7 @@ Compose). CI runs them, the two checks and gitleaks on every push and pull reque
 4. `sudo scripts/deploy.sh` once. It runs every one-time operation: on a rebuilt server whose data already went
    through them, run `sudo scripts/run_operations.sh --mark-all-done` first.
 5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
-6. Task Scheduler: `bash /volume1/docker/homelab/scripts/backup_databases.sh <folder>` as root nightly, email on
-   failure; then a Hyper Backup task (see Backups) scheduled after it.
+6. Backups: follow [Backups, Setup](#setup). Until a backup succeeds, the deploy reports it.
 7. Settings sync: create a fine-grained GitHub token for this repository only, with Contents and Pull requests set
    to read and write, and save it root-only on the NAS:
    `sudo sh -c 'umask 077; cat > /volume1/docker/homelab/.github-token'` (paste, Enter, Ctrl-D). Turn on "Allow
@@ -171,3 +247,5 @@ GitHub token for the settings sync: its pull requests may only change `config/re
 - **`git merge --ff-only` fails**: local edits or a force push. `git status`, then `git reset --hard origin/main`
   (`.env` files are gitignored, so they survive).
 - **Glance won't start**: `sudo scripts/compose.sh infrastructure logs glance` names the missing value.
+- **Deploy says `Backups: …`**: the nightly `backup_nas.sh` task didn't succeed. Open its last output in Task
+  Scheduler, or run `sudo bash scripts/backup_nas.sh` to see which step fails.
