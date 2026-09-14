@@ -34,7 +34,7 @@ STUB
     git init --quiet --bare --initial-branch=main "$sandbox/origin.git"
     git init --quiet --initial-branch=main "$sandbox/dev"
     mkdir -p "$sandbox/dev/scripts" "$sandbox/dev/stacks" "$sandbox/dev/config/glance"
-    cp "$SCRIPTS_DIR/deploy.sh" "$SCRIPTS_DIR/compose.sh" "$SCRIPTS_DIR/run_operations.sh" "$SCRIPTS_DIR/lib.sh" "$sandbox/dev/scripts/"
+    cp "$SCRIPTS_DIR/deploy.sh" "$SCRIPTS_DIR/compose.sh" "$SCRIPTS_DIR/run_operations.sh" "$SCRIPTS_DIR/check_backups.sh" "$SCRIPTS_DIR/lib.sh" "$sandbox/dev/scripts/"
     printf 'TZ=\n' > "$sandbox/dev/stacks/common.env.example"
     for stack in media photos; do
         mkdir -p "$sandbox/dev/stacks/$stack"
@@ -47,7 +47,10 @@ STUB
     git -C "$sandbox/dev" remote add origin "$sandbox/origin.git"
     git -C "$sandbox/dev" push --quiet origin main
     git clone --quiet "$sandbox/origin.git" "$sandbox/nas"
-    printf 'TZ=Europe/Paris\n' > "$sandbox/nas/stacks/common.env"
+    printf 'TZ=Europe/Paris\nBACKUPDIR=%s\n' "$sandbox/backups" > "$sandbox/nas/stacks/common.env"
+    # A database backup that just succeeded, so check_backups.sh stays quiet unless a test ages it.
+    mkdir -p "$sandbox/backups"
+    touch "$sandbox/backups/last-success" "$sandbox/backups/offsite-last-success"
     for stack in media photos; do
         printf 'API_KEY=secret\n' > "$sandbox/nas/stacks/$stack/.env"
     done
@@ -122,6 +125,15 @@ expect_deploy_failure_mentioning() {
         echo "      expected the output to mention: $1"
         return 1
     fi
+}
+
+test_stale_backups_are_reported_once_without_holding_the_deploy() {
+    touch -d '30 hours ago' "$sandbox/backups/last-success"
+    expect_deploy_failure_mentioning "the last successful database backup was 30 hours ago"
+    assert_docker_calls "$(compose_up_call media)
+$(compose_up_call photos)
+restart glance"
+    run_deploy || { echo "      the same backup problem must not fail the next run"; return 1; }
 }
 
 test_first_run_deploys_everything() {
@@ -268,6 +280,7 @@ test_failed_before_operation_changes_no_container() {
 }
 
 run_test "it deploys every stack and restarts every config container on the first run" in_sandbox test_first_run_deploys_everything
+run_test "it reports failing database backups once, without holding back the deploy" in_sandbox test_stale_backups_are_reported_once_without_holding_the_deploy
 run_test "it does nothing when main has not moved" in_sandbox test_unchanged_main_does_nothing
 run_test "it only redeploys the stack whose files changed" in_sandbox test_stack_change_redeploys_only_that_stack
 run_test "it restarts the container named after a changed config folder" in_sandbox test_config_change_restarts_its_container

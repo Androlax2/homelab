@@ -10,6 +10,8 @@ services:
     container_name: immich_server
     image: ghcr.io/immich-app/immich-server:v3.2.0
     labels:
+      # Backup: photos are plain files under DOCKERSTORAGEDIR, data lives in immich-database.
+      homelab.backup: "none"
       glance.name: "Immich"
       glance.icon: "sh:immich"
       glance.description: "Photo Backup & Sharing"
@@ -52,6 +54,7 @@ services:
   immich-database:
     container_name: immich_postgres
     labels:
+      homelab.backup: "postgres"
       glance.name: "Immich PostgreSQL"
       glance.icon: "sh:postgresql"
       glance.description: "Photo Database"

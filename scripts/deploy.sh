@@ -17,6 +17,10 @@ set -euo pipefail
 #
 # .last-deployed only moves once every step succeeded, so a failed run is
 # retried on the next tick instead of being skipped.
+#
+# Every run, even with nothing to deploy, also checks that the nightly database backup
+# still succeeds (check_backups.sh): a problem fails the run once, so DSM emails it,
+# without holding any deploy back.
 # ============================================================
 
 # DSM Task Scheduler's PATH does not include /usr/local/bin, where docker lives.
@@ -55,10 +59,13 @@ git fetch --quiet origin main
 git merge --ff-only --quiet origin/main
 current_commit=$(git rev-parse HEAD)
 
+backups_status=0
+"$REPO_DIR/scripts/check_backups.sh" || backups_status=$?
+
 if [ -f "$LAST_DEPLOYED_FILE" ]; then
     last_deployed_commit=$(cat "$LAST_DEPLOYED_FILE")
     if [ "$last_deployed_commit" = "$current_commit" ]; then
-        exit 0
+        exit "$backups_status"
     fi
     log "Deploying ${last_deployed_commit:0:7}..${current_commit:0:7}"
     changed_paths=$(git diff --name-only --no-renames "$last_deployed_commit" "$current_commit")
@@ -115,3 +122,4 @@ if [ ${#removed_stacks[@]} -gt 0 ]; then
     done
     exit 1
 fi
+exit "$backups_status"

@@ -1,0 +1,40 @@
+# Off-NAS backup of the NAS's own data to the Hetzner Storage Box, with restic.
+#
+# Nothing here runs on its own: the "manual" profile keeps the deploy's `compose up` from
+# starting it. scripts/backup_nas.sh runs it every night, once scripts/backup_databases.sh
+# has dumped the databases: `scripts/compose.sh backup run --rm -T restic <restic command>`.
+#
+# Everything under /source is mounted read-only and backed up, minus excludes.txt.
+name: backup
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
+services:
+  restic:
+    container_name: restic
+    image: restic/restic:0.19.1
+    profiles: ["manual"]
+    # restic finds the previous snapshot by host name: without a fixed one, every run re-reads every file.
+    hostname: jeancloud
+    labels:
+      # Backup: it is the backup; its only writable folder is restic's cache.
+      homelab.backup: "none"
+    logging: *logging
+    env_file: .env
+    environment:
+      - TZ=${TZ}
+      - RESTIC_CACHE_DIR=/cache
+    volumes:
+      # SSH key, config and known_hosts for the Storage Box, root-only (see README, Backups)
+      - ${DOCKERCONFDIR}/restic/ssh:/root/.ssh:ro
+      - ${DOCKERCONFDIR}/restic/cache:/cache
+      - ./excludes.txt:/excludes.txt:ro
+      - ${DOCKERSTORAGEDIR}/library:/source/photos:ro
+      - ${DOCKERCONFDIR}:/source/appdata:ro
+      - ${BACKUPDIR}:/source/databases:ro
+      - ${HOMESDIR}:/source/homes:ro
+      - ../..:/source/homelab:ro

@@ -9,6 +9,7 @@ services:
     container_name: vaultwarden
     image: vaultwarden/server:1.37.3
     labels:
+      homelab.backup: "sqlite"
       glance.name: "Vaultwarden"
       glance.icon: "sh:vaultwarden"
       glance.description: "Password Manager"

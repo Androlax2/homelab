@@ -49,6 +49,7 @@ services:
     container_name: filebrowser
     image: filebrowser/filebrowser:v2.63.23-s6
     labels:
+      homelab.backup: "bolt"
       glance.name: "FileBrowser"
       glance.icon: "di:filebrowser"
       glance.description: "File Management"

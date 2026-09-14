@@ -9,6 +9,7 @@ services:
     container_name: portainer
     image: portainer/portainer-ce:2.45.0
     labels:
+      homelab.backup: "bolt"
       glance.name: Portainer
       glance.icon: di:portainer
       glance.url: https://${LAN_IP}:9443

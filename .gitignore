@@ -7,3 +7,5 @@
 .arr-settings-synced
 .github-token
 .deploy.lock
+.backup-alert
+.backup-nas.lock
