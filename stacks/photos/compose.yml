@@ -8,7 +8,7 @@ services:
 
   immich-server:
     container_name: immich_server
-    image: ghcr.io/immich-app/immich-server:v3.2.1
+    image: ghcr.io/immich-app/immich-server:v3.2.2
     labels:
       # Backup: photos are plain files under DOCKERSTORAGEDIR, data lives in immich-database.
       homelab.backup: "none"
