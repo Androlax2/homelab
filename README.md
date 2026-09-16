@@ -127,6 +127,19 @@ Every deploy run checks that both backups succeeded in the last 26 hours: `${BAC
 `${BACKUPDIR}/offsite-last-success` for restic. When one didn't, or never did, the deploy run fails once, so DSM
 emails you, then stays quiet until backups succeed again. It never holds a deploy back.
 
+### Dashboard
+
+Glance's Home page shows the backups under the NAS stats:
+
+- **Backups**: for PC → NAS and PC → Storage Box (the PC backs itself up, from its dotfiles) and NAS → Storage Box,
+  the number of snapshots, the age of the last one and the space taken, plus the NAS's snapshots of the PC's share.
+  `scripts/backup_status.sh` reads them every hour from the repositories' files, without their passwords (restic
+  writes each snapshot as one file when the backup ends), into `${DOCKERCONFDIR}/backup-status/backups.json`, which
+  the `backup-status` container serves to Glance. A repository it can't read shows its error in red, and so does
+  "Updated" when the hourly task stops.
+- **Storage Box**: space used out of the quota, split into data and snapshots, and the Storage Box snapshots, live
+  from the Hetzner API.
+
 ### Setup
 
 Once, on the NAS, as root:
@@ -163,6 +176,10 @@ Once, on the NAS, as root:
 5. Create the repository: `sudo scripts/compose.sh backup run --rm -T restic init`.
 6. Task Scheduler: `bash /volume1/docker/homelab/scripts/backup_nas.sh` as root daily at 02:30, email on failure.
    Run it once by hand: the first upload takes hours, and a run still going the next night is skipped.
+7. Dashboard: in Hetzner Console, create a Read-only API token in the project holding the Storage Box, then
+   `sudo scripts/edit_env.sh infrastructure` (`HETZNER_API_TOKEN`, `HETZNER_STORAGE_BOX_ID`) and
+   `sudo scripts/edit_env.sh backup` (the `PC_RESTIC_*` paths). Task Scheduler:
+   `bash /volume1/docker/homelab/scripts/backup_status.sh` as root every hour, email on failure.
 
 ### Restore
 
@@ -193,6 +210,7 @@ Every restic command runs through the stack, e.g. `sudo scripts/compose.sh backu
 | `cleanup_deluge.sh` | remove orphaned torrents (scheduled; reads its API keys from `stacks/media/.env`, `DRY_RUN=1` to simulate) |
 | `backup_nas.sh` | nightly: database dumps, then the restic backup to the Storage Box (see Backups) |
 | `backup_databases.sh` | the database dumps, by `homelab.backup` label (run by `backup_nas.sh`) |
+| `backup_status.sh` | hourly: the backup numbers the dashboard shows (see Backups, Dashboard) |
 | `check_backups.sh` | fails once when a backup is over 26 hours old (run by `deploy.sh`) |
 | `sync_arr_settings.sh` | two-way sync of the Sonarr/Radarr settings (every 15 minutes, root; `--take-apps`, `--take-repo`) |
 | `export_arr_settings.sh`, `preview_recyclarr.sh` | copy Sonarr/Radarr settings into the repo, preview a sync (your computer) |

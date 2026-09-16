@@ -1,0 +1,47 @@
+# Live from the Hetzner API. Sizes are in bytes, shown in GB like the other widgets (1024³).
+- type: custom-api
+  title: Storage Box
+  cache: 1h
+  url: https://api.hetzner.com/v1/storage_boxes/${HETZNER_STORAGE_BOX_ID}
+  headers:
+    Authorization: Bearer ${HETZNER_API_TOKEN}
+    Accept: application/json
+  subrequests:
+    snapshots:
+      url: https://api.hetzner.com/v1/storage_boxes/${HETZNER_STORAGE_BOX_ID}/snapshots
+      headers:
+        Authorization: Bearer ${HETZNER_API_TOKEN}
+        Accept: application/json
+  template: |
+    {{ $snapshots := .Subrequest "snapshots" }}
+    {{ if ne .Response.StatusCode 200 }}
+      <p class="color-negative">Hetzner API: {{ .JSON.String "error.message" }} ({{ .Response.Status }})</p>
+    {{ else if ne $snapshots.Response.StatusCode 200 }}
+      <p class="color-negative">Hetzner API, snapshots: {{ $snapshots.JSON.String "error.message" }} ({{ $snapshots.Response.Status }})</p>
+    {{ else }}
+      {{ $used := .JSON.Float "storage_box.stats.size" }}
+      {{ $quota := .JSON.Float "storage_box.storage_box_type.size" }}
+      {{ $usedPercent := div (mul $used 100) $quota | toInt }}
+      <div class="flex justify-between items-center">
+        <span class="size-h3 color-highlight">{{ printf "%.0f" (div $used 1073741824) }} GB</span>
+        <span class="size-h5">of {{ printf "%.0f" (div $quota 1073741824) }} GB · {{ $usedPercent }}%</span>
+      </div>
+      <div class="progress-bar margin-top-5">
+        <div class="progress-value{{ if ge $usedPercent 85 }} progress-value-notice{{ end }}" style="--percent: {{ $usedPercent }}"></div>
+      </div>
+      <ul class="list-horizontal-text size-h6 margin-top-7">
+        <li>data {{ printf "%.1f" (div (.JSON.Float "storage_box.stats.size_data") 1073741824) }} GB</li>
+        <li>snapshots {{ printf "%.1f" (div (.JSON.Float "storage_box.stats.size_snapshots") 1073741824) }} GB</li>
+      </ul>
+      {{ $snapshotList := $snapshots.JSON.Array "snapshots" | sortByTime "created" "RFC3339" "desc" }}
+      {{ $maxSnapshots := .JSON.Int "storage_box.snapshot_plan.max_snapshots" }}
+      <ul class="list-horizontal-text size-h6 margin-top-7">
+        <li>{{ len $snapshotList }} snapshots{{ if gt $maxSnapshots 0 }}, keeps {{ $maxSnapshots }}{{ end }}</li>
+        {{ if gt (len $snapshotList) 0 }}
+          <li>last <span {{ (index $snapshotList 0).String "created" | parseTime "RFC3339" | toRelativeTime }}></span> ago</li>
+        {{ end }}
+      </ul>
+      {{ if eq $maxSnapshots 0 }}
+        <div class="size-h6 color-negative">No automatic snapshots: turn them on in Hetzner Console</div>
+      {{ end }}
+    {{ end }}
