@@ -45,6 +45,27 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
+  # Serves backups.json, written hourly by scripts/backup_status.sh, to Glance's Backups widget.
+  # No published port: Glance reaches it on this stack's network, and nobody else needs it.
+  backup-status:
+    container_name: backup-status
+    image: joseluisq/static-web-server:2.44.0
+    restart: unless-stopped
+    labels:
+      glance.name: "Backup status"
+      glance.icon: "sh:restic.png"
+      glance.description: "Backup numbers for Glance"
+      glance.category: "infrastructure"
+      glance.parent: "glance"
+    logging: *logging
+    environment:
+      # IPv4: the default, "::", needs IPv6, which Docker leaves off in containers on this network.
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+      - SERVER_ROOT=/public
+    volumes:
+      - ${DOCKERCONFDIR}/backup-status:/public:ro
+
   filebrowser:
     container_name: filebrowser
     image: filebrowser/filebrowser:v2.63.23-s6

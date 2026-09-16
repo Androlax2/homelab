@@ -3,6 +3,8 @@
     - size: small
       widgets:
         $include: ../widgets/server-stats.yml
+        $include: ../widgets/backups.yml
+        $include: ../widgets/storage-box.yml
 
     - size: full
       widgets:

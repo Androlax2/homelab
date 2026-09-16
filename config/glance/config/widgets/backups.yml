@@ -1,0 +1,47 @@
+# backups.json is written hourly by scripts/backup_status.sh and served by the backup-status
+# container. "Updated" turns red when that file is over 2 hours old: the hourly task stopped.
+- type: custom-api
+  title: Backups
+  cache: 10m
+  url: http://backup-status:8080/backups.json
+  template: |
+    {{ if ne .Response.StatusCode 200 }}
+      <p class="color-negative">backups.json: {{ .Response.Status }}. Has scripts/backup_status.sh run on the NAS?</p>
+    {{ else }}
+      <ul class="list list-gap-14">
+        {{ range .JSON.Array "repositories" }}
+          <li>
+            <div class="flex justify-between items-center">
+              <span class="size-h4 color-highlight">{{ .String "name" }}</span>
+              {{ if not (.Exists "error") }}
+                <span class="size-h4">{{ printf "%.1f" (div (.Float "size") 1073741824) }} GB</span>
+              {{ end }}
+            </div>
+            {{ if .Exists "error" }}
+              <div class="size-h6 color-negative">{{ .String "error" }}</div>
+            {{ else }}
+              <ul class="list-horizontal-text size-h6">
+                <li>{{ .Int "snapshots" }} backups</li>
+                {{ if .Exists "last_snapshot" }}
+                  <li>last <span {{ .String "last_snapshot" | parseTime "RFC3339" | toRelativeTime }}></span> ago</li>
+                {{ end }}
+              </ul>
+            {{ end }}
+            {{ if .Exists "nas_snapshots.error" }}
+              <div class="size-h6 color-negative">NAS snapshots: {{ .String "nas_snapshots.error" }}</div>
+            {{ else if .Exists "nas_snapshots" }}
+              <ul class="list-horizontal-text size-h6">
+                <li>{{ .Int "nas_snapshots.count" }} NAS snapshots</li>
+                {{ if .Exists "nas_snapshots.last" }}
+                  <li>last <span {{ .String "nas_snapshots.last" | parseTime "RFC3339" | toRelativeTime }}></span> ago</li>
+                {{ end }}
+              </ul>
+            {{ end }}
+          </li>
+        {{ end }}
+      </ul>
+      {{ $generated := .JSON.String "generated" | parseTime "RFC3339" }}
+      <div class="size-h6 margin-top-10 {{ if $generated.Before (offsetNow "-2h") }}color-negative{{ else }}color-subdue{{ end }}">
+        Updated <span {{ $generated | toRelativeTime }}></span> ago
+      </div>
+    {{ end }}
