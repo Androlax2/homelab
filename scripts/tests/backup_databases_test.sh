@@ -103,6 +103,24 @@ os._exit(0)
 PYTHON
 }
 
+# $1 = database file, $2 = value stored in it. An index uses a collation only the app has,
+# like Plex's icu_root: this python3 can copy the database but not check it. The index is on
+# another column than value, so sqlite_values can still read it.
+create_sqlite_with_app_collation() {
+    mkdir -p "$(dirname "$1")"
+    python3 - "$1" "$2" <<'PYTHON'
+import sqlite3, sys
+connection = sqlite3.connect(sys.argv[1])
+connection.create_collation("icu_root", lambda left, right: (left > right) - (left < right))
+connection.execute("PRAGMA journal_mode=WAL")
+connection.execute("CREATE TABLE items (value TEXT, title TEXT)")
+connection.execute("CREATE INDEX items_title ON items (title COLLATE icu_root)")
+connection.execute("INSERT INTO items VALUES (?, 'a title')", (sys.argv[2],))
+connection.commit()
+connection.close()
+PYTHON
+}
+
 # $1 = database file. Prints the values stored in it.
 sqlite_values() {
     python3 -c 'import sqlite3, sys; print("\n".join(row[0] for row in sqlite3.connect(sys.argv[1]).execute("SELECT value FROM items")))' "$1"
@@ -168,6 +186,18 @@ test_skips_the_apps_own_dated_copies() {
     [ ! -e "$copies/com.plexapp.plugins.library.db-2026-09-13" ] || fail_with "the app's dated copy must be skipped"
 }
 
+test_copies_a_sqlite_unchecked_container_without_checking_it() {
+    local databases="$config_root/plex/Library/Application Support/Plex Media Server/Plug-in Support/Databases"
+    add_container plex-server sqlite-unchecked "$config_root/plex"
+    create_sqlite_with_app_collation "$databases/com.plexapp.plugins.library.db" live
+    run_backup || fail_with "expected success"
+    local copies="$backup_root/$TODAY/plex/Library/Application Support/Plex Media Server/Plug-in Support/Databases"
+    [ "$(sqlite_values "$copies/com.plexapp.plugins.library.db")" = live ] || fail_with "the database must be copied"
+    grep -q 'plex-server: Copied .*com.plexapp.plugins.library.db (not checked)' "$sandbox/output" \
+        || fail_with "the copy must be logged as not checked"
+    [ -f "$backup_root/last-success" ] || fail_with "a successful run must touch last-success"
+}
+
 test_stops_a_bolt_container_only_while_archiving() {
     run_backup || fail_with "expected success"
     [ "$(grep -E '^(stop|start) ' "$DOCKER_CALLS_LOG")" = "$(printf 'stop portainer\nstart portainer')" ] \
@@ -214,6 +244,10 @@ check_failure() {
         truncated-dump) export STUB_TRUNCATED=app-db ;;
         missing-container) export STUB_MISSING=app-db ;;
         no-sqlite-file) rm "$config_root/vaultwarden/db.sqlite3" ;;
+        app-collation)
+            rm "$config_root/vaultwarden/db.sqlite3"
+            create_sqlite_with_app_collation "$config_root/vaultwarden/db.sqlite3" vault-row
+            ;;
         unknown-label) add_container odd mongo "$config_root/odd" ;;
         archive-fails) printf '%s\n' "$config_root/missing" > "$STUB_MOUNTS_DIR/portainer" ;;
     esac
@@ -240,6 +274,7 @@ run_test "its backups are readable by root only" in_sandbox test_backups_are_rea
 run_test "an SQLite copy includes changes still in the write-ahead log" in_sandbox test_sqlite_copy_includes_the_write_ahead_log
 run_test "copying an SQLite database creates no -wal or -shm file beside it" in_sandbox test_sqlite_copy_creates_no_file_beside_the_database
 run_test "it skips the dated copies an app keeps of its own database" in_sandbox test_skips_the_apps_own_dated_copies
+run_test "it copies a sqlite-unchecked container's databases without checking them" in_sandbox test_copies_a_sqlite_unchecked_container_without_checking_it
 run_test "it stops a bolt container only while archiving, then starts it again" in_sandbox test_stops_a_bolt_container_only_while_archiving
 run_test "it archives a stopped bolt container without starting it" in_sandbox test_leaves_a_stopped_bolt_container_stopped
 run_test "it keeps only the last 14 dated backups" in_sandbox test_keeps_only_the_last_14_backups
@@ -248,6 +283,7 @@ run_test "it fails when no container is labelled" in_sandbox test_fails_when_no_
 run_test "a dump without Postgres's completion line fails the run and keeps older backups" in_sandbox check_failure truncated-dump app-db
 run_test "a missing database container fails the run and keeps older backups" in_sandbox check_failure missing-container app-db
 run_test "a container labelled sqlite without any SQLite file fails the run and keeps older backups" in_sandbox check_failure no-sqlite-file vaultwarden
+run_test "a sqlite database this python3 can't check fails the run and keeps older backups" in_sandbox check_failure app-collation vaultwarden
 run_test "an unknown homelab.backup kind fails the run and keeps older backups" in_sandbox check_failure unknown-label odd
 run_test "a failed archive fails the run, keeps older backups and restarts the container" in_sandbox check_failure archive-fails portainer
 

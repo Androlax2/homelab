@@ -206,7 +206,8 @@ services:
     image: plexinc/pms-docker:1.43.4.10903-e5521bd8c
     restart: unless-stopped
     labels:
-      homelab.backup: "sqlite"
+      # Backup: Plex's databases need Plex's own SQLite (ICU collation, full-text tokenizer) to be checked.
+      homelab.backup: "sqlite-unchecked"
       glance.name: "Plex"
       glance.icon: "sh:plex"
       glance.description: "Media Server"

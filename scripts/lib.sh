@@ -4,7 +4,7 @@ log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 
 # Values the homelab.backup label accepts, i.e. how scripts/backup_databases.sh backs a service up.
 # scripts/check_stacks.sh requires the label on every service with a writable volume.
-BACKUP_KINDS="postgres sqlite bolt none"
+BACKUP_KINDS="postgres sqlite sqlite-unchecked bolt none"
 
 # Asks for an API key (hidden input) unless the variable already holds one, then exports it.
 # $1 = variable name, $2 = what the key is for

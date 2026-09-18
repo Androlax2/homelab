@@ -7,7 +7,10 @@ set -euo pipefail
 #   postgres  pg_dumpall, kept only if the dump ends with Postgres's own completion line
 #   sqlite    every SQLite file in the container's folders under DOCKERCONFDIR, copied with
 #             SQLite's online backup and checked; the app's own dated copies are skipped
-#   bolt      the container is stopped, its folders under DOCKERCONFDIR archived, and it
+#   sqlite-unchecked
+#             like sqlite, without the check: for databases only the app's own SQLite build
+#             can open fully (Plex: ICU collation, full-text tokenizer)
+#   bolt     the container is stopped, its folders under DOCKERCONFDIR archived, and it
 #             is started again (BoltDB locks its file, so a live copy can be corrupt)
 #   none      nothing to dump: plain files Hyper Backup copies as they are, or data not
 #             worth keeping
@@ -91,6 +94,8 @@ dump_postgres() {
 # database then belongs to that user (a root-owned one would lock the app out), and SQLite
 # removes them as usual. Dated copies an app keeps of itself (name-YYYY-MM-DD, like Plex's)
 # are skipped. Fails when a copy fails its integrity check, or when the folders hold no SQLite file.
+# $1 = sqlite, or sqlite-unchecked to skip the integrity check, $2 = config root,
+# $3 = destination root, $4... = folders
 copy_sqlite_databases() {
     python3 - "$@" <<'PYTHON'
 import os
@@ -101,7 +106,10 @@ import sqlite3
 import sys
 import tempfile
 
-config_root, destination_root, *folders = sys.argv[1:]
+kind, config_root, destination_root, *folders = sys.argv[1:]
+if kind not in ("sqlite", "sqlite-unchecked"):
+    sys.exit(f"ERROR: unknown SQLite backup kind \"{kind}\"")
+is_checked = kind == "sqlite"
 dated_copy = re.compile(r"-\d{4}-\d{2}-\d{2}$")
 
 
@@ -141,7 +149,7 @@ def back_up_as_owner(source, work_file):
     return os.waitstatus_to_exitcode(wait_status) == 0 if hasattr(os, "waitstatus_to_exitcode") else wait_status == 0
 
 
-def copy(source, destination):
+def copy(source, destination, is_checked):
     owner = os.stat(source)
     work_directory = tempfile.mkdtemp(prefix="backup-databases-")
     try:
@@ -149,11 +157,12 @@ def copy(source, destination):
         work_file = os.path.join(work_directory, "copy.sqlite3")
         if not back_up_as_owner(source, work_file):
             return False
-        with sqlite3.connect(work_file) as work_connection:
-            check = work_connection.execute("PRAGMA quick_check").fetchone()[0]
-        if check != "ok":
-            print(f"ERROR: {os.path.relpath(source, config_root)}: integrity check of the copy: {check}", flush=True)
-            return False
+        if is_checked:
+            with sqlite3.connect(work_file) as work_connection:
+                check = work_connection.execute("PRAGMA quick_check").fetchone()[0]
+            if check != "ok":
+                print(f"ERROR: {os.path.relpath(source, config_root)}: integrity check of the copy: {check}", flush=True)
+                return False
         os.makedirs(os.path.dirname(destination), exist_ok=True)
         partial = destination + ".partial"
         shutil.move(work_file, partial)
@@ -176,12 +185,12 @@ for folder in folders:
                 continue
             relative_path = os.path.relpath(source, config_root)
             try:
-                copied = copy(source, os.path.join(destination_root, relative_path))
+                copied = copy(source, os.path.join(destination_root, relative_path), is_checked)
             except (sqlite3.Error, OSError) as error:
                 print(f"ERROR: {relative_path}: {error}", flush=True)
                 copied = False
             if copied:
-                print(f"Copied {relative_path}", flush=True)
+                print(f"Copied {relative_path}" if is_checked else f"Copied {relative_path} (not checked)", flush=True)
                 copied_count += 1
             else:
                 failed = True
@@ -193,8 +202,9 @@ sys.exit(1 if failed else 0)
 PYTHON
 }
 
+# $1 = container, $2 = its kind: sqlite or sqlite-unchecked
 backup_sqlite() {
-    local container="$1" folders
+    local container="$1" kind="$2" folders
     log "Copying the SQLite databases of $container"
     if ! folders=$(config_folders "$container") || [ -z "$folders" ]; then
         log "ERROR: $container: mounts no folder under $config_root"
@@ -202,7 +212,7 @@ backup_sqlite() {
     fi
     local -a folder_list
     mapfile -t folder_list <<<"$folders"
-    copy_sqlite_databases "$config_root" "$target_dir" "${folder_list[@]}" 2>&1 \
+    copy_sqlite_databases "$kind" "$config_root" "$target_dir" "${folder_list[@]}" 2>&1 \
         | while IFS= read -r line; do log "$container: $line"; done
 }
 
@@ -273,7 +283,7 @@ failed=()
 while read -r container kind <&3; do
     case "$kind" in
         postgres) dump_postgres "$container" || failed+=("$container") ;;
-        sqlite) backup_sqlite "$container" || failed+=("$container") ;;
+        sqlite | sqlite-unchecked) backup_sqlite "$container" "$kind" || failed+=("$container") ;;
         bolt) backup_stopped_container "$container" || failed+=("$container") ;;
         none) ;;
         *)

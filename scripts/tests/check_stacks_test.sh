@@ -64,6 +64,8 @@ run_test "it lets a service with only read-only volumes skip the homelab.backup 
     check_stack app '    volumes:\n      - /check/data:/data:ro' passes "OK    app"
 run_test "it passes a service whose writable volume has a homelab.backup label" \
     check_stack app '    labels:\n      homelab.backup: "sqlite"\n    volumes:\n      - /check/data:/data' passes "OK    app"
+run_test "it accepts the sqlite-unchecked homelab.backup kind" \
+    check_stack app '    labels:\n      homelab.backup: "sqlite-unchecked"\n    volumes:\n      - /check/data:/data' passes "OK    app"
 run_test "it checks services behind a compose profile too" \
     check_stack app '    profiles: ["manual"]\n    volumes:\n      - /check/data:/data' fails "app: has a writable volume but no homelab.backup label"
 run_test "it fails an unknown homelab.backup kind" \
