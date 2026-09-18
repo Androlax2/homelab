@@ -15,7 +15,7 @@ x-logging: &logging
     max-size: ${DOCKERLOGGING_MAXSIZE}
 
 x-api: &api
-  image: ghcr.io/opusline/opusline-api:0.29.1
+  image: ghcr.io/opusline/opusline-api:0.30.0
   restart: unless-stopped
   logging: *logging
   env_file: .env
@@ -41,7 +41,7 @@ x-api-worker: &api-worker
 services:
   opusline:
     container_name: opusline
-    image: ghcr.io/opusline/opusline-web:0.29.1
+    image: ghcr.io/opusline/opusline-web:0.30.0
     labels:
       glance.name: "Opusline"
       glance.icon: "/assets/opusline.svg"
