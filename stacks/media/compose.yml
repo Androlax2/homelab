@@ -7,7 +7,7 @@ x-logging: &logging
 services:
 
   maintainerr:
-    image: ghcr.io/maintainerr/maintainerr:3.30.0
+    image: ghcr.io/maintainerr/maintainerr:3.30.1
     container_name: maintainerr
     user: "${PUID}:${PGID}"
     network_mode: host
