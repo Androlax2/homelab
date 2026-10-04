@@ -95,9 +95,12 @@ What it does to the apps:
 
 - a listed profile and its custom formats are created or brought back to the guides' values: a change made by
   hand in the apps on those is overwritten by the next run;
-- a custom format no listed profile uses is deleted;
-- a profile that isn't listed is left alone, so removing one from the file doesn't delete it (delete it in the
-  app), and neither are naming and quality sizes.
+- every other custom format and quality profile is deleted, the apps' built-in profiles included: the apps only
+  hold what the file lists;
+- a profile still used by a series or a movie can't be deleted. The run then fails, and stops there: Radarr,
+  which comes after Sonarr, is not synced until Sonarr's run passes. Move the series or movies to a listed
+  profile and run `sudo docker start -a configarr`;
+- naming and quality sizes are left alone.
 
 To see what a change would do before pushing it, on the NAS: put the edited file in a folder and run
 `sudo docker run --rm --network host --env-file stacks/media/.env -e DRY_RUN=true -v <folder>:/app/config:ro

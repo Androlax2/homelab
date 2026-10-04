@@ -2,19 +2,23 @@
 # formats and scores the guides give it. Anything changed by hand in the apps on one of these
 # profiles or their custom formats is overwritten by the next run.
 #
-# Add a profile by its trash_id, found in the guides' JSON files:
+# Add a profile by its trash_id (with `source: TRASH`), found in the guides' JSON files:
 #   https://github.com/TRaSH-Guides/Guides/tree/master/docs/json/sonarr/quality-profiles
 #   https://github.com/TRaSH-Guides/Guides/tree/master/docs/json/radarr/quality-profiles
 # Keep the ids quoted: one made only of digits would be read as a number and rejected.
-# Removing a profile from this file stops its sync but leaves it in the app: delete it there.
+# A profile removed from this file is deleted from the app by the next run, once nothing uses it.
 
 sonarr:
   series:
     # Sonarr uses the host network, like the configarr container.
     base_url: http://localhost:8989
     api_key: !env SONARR_API_KEY
-    # Custom formats no profile below uses are deleted from Sonarr.
+    # Sonarr only holds what this file lists: any other custom format or quality profile is
+    # deleted, the apps' built-in profiles included. A profile still used by a series can't be
+    # deleted: the run fails until nothing uses it.
     delete_unmanaged_custom_formats:
+      enabled: true
+    delete_unmanaged_quality_profiles:
       enabled: true
     include:
       # [French MULTi.VF] HD Bluray + WEB (1080p)
@@ -29,14 +33,26 @@ sonarr:
       # [French VOSTFR] HD Bluray + WEB (1080p)
       - template: "b34c968f58433a38e0e690d42a1dc37e"
         source: TRASH
+      # FR-ANIME-MULTi and FR-ANIME-VOSTFR. The guides have no French anime profile of their own:
+      # these are Recyclarr's templates, a profile and its custom formats each, built on the
+      # guides' anime formats and scores.
+      #   https://github.com/recyclarr/config-templates/tree/4ae377bb704fc7fd69a544ad04e91357e0b09f62/sonarr/includes
+      - template: sonarr-v4-quality-profile-1080p-french-anime-multi
+      - template: sonarr-v4-custom-formats-1080p-french-anime-multi
+      - template: sonarr-v4-quality-profile-1080p-french-anime-vostfr
+      - template: sonarr-v4-custom-formats-1080p-french-anime-vostfr
 
 radarr:
   movies:
     # Radarr uses the host network, like the configarr container.
     base_url: http://localhost:7878
     api_key: !env RADARR_API_KEY
-    # Custom formats no profile below uses are deleted from Radarr.
+    # Radarr only holds what this file lists: any other custom format or quality profile is
+    # deleted, the apps' built-in profiles included. A profile still used by a movie can't be
+    # deleted: the run fails until nothing uses it.
     delete_unmanaged_custom_formats:
+      enabled: true
+    delete_unmanaged_quality_profiles:
       enabled: true
     include:
       # [French MULTi.VF] HD Bluray + WEB
@@ -51,3 +67,15 @@ radarr:
       # [French VOSTFR] HD Bluray + WEB
       - template: "1addc08c4232bc2617684d517df15f75"
         source: TRASH
+    # The guides' optional "Movie Versions" group (IMAX, Remaster, Criterion Collection...), with
+    # the guides' scores.
+    custom_format_groups:
+      - trash_guide:
+          - id: "f4f1474b963b24cf983455743aa9906c"
+            # The guides turn none of its formats on by default: take them all.
+            include_unrequired: true
+        assign_scores_to:
+          - name: "[French MULTi.VF] HD Bluray + WEB"
+          - name: "[French MULTi.VF] UHD Bluray + WEB"
+          - name: "[French MULTi.VO] HD Bluray + WEB"
+          - name: "[French VOSTFR] HD Bluray + WEB"
