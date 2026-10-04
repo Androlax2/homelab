@@ -218,14 +218,13 @@ Every restic command runs through the stack, e.g. `sudo scripts/compose.sh backu
 | `edit_env.sh <stack>\|common` | edit settings and secrets on the NAS |
 | `new_operation.sh`, `run_operations.sh` | one-time operations (`--before`/`--after`, `--list`, `--mark-all-done`) |
 | `premigration_check.sh <stack>` | compare running containers with the compose file before replacing them |
-| `cleanup_deluge.sh` | remove orphaned torrents (scheduled; reads its API keys from `stacks/media/.env`, `DRY_RUN=1` to simulate) |
+| `cleanup_qbittorrent.sh` | remove orphaned torrents (scheduled; reads its API keys and qBittorrent login from `stacks/media/.env`, `DRY_RUN=1` to simulate) |
 | `backup_nas.sh` | nightly: database dumps, then the restic backup to the Storage Box (see Backups) |
 | `backup_databases.sh` | the database dumps, by `homelab.backup` label (run by `backup_nas.sh`) |
 | `backup_status.sh` | hourly: the backup numbers the dashboard shows (see Backups, Dashboard) |
 | `check_backups.sh` | fails once when a backup is over 26 hours old (run by `deploy.sh`) |
 | `check_stacks.sh`, `check_glance_config.sh` | CI checks, runnable locally |
 | `migration_helpers.sh` | helpers used once, for the migration from Portainer |
-| `migrate_deluge_to_qbittorrent.sh` | used once, by hand: copies Deluge's torrents into qBittorrent, stopped (`DRY_RUN=1` to simulate) |
 
 Tests: `for test_file in scripts/tests/*_test.sh; do bash "$test_file"; done` (needs bash, git, jq, flock, Docker
 Compose). CI runs them, the two checks and gitleaks on every push and pull request.

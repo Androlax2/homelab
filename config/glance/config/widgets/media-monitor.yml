@@ -25,9 +25,6 @@
     - title: Tautulli
       url: http://${TAUTULLI_URL}
       icon: sh:tautulli
-    - title: Deluge
-      url: http://${LAN_IP}:8112
-      icon: sh:deluge
     - title: qBittorrent
       url: http://${LAN_IP}:8080
       icon: sh:qbittorrent

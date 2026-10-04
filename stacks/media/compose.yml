@@ -68,45 +68,6 @@ services:
       - 8.8.8.8
     restart: unless-stopped
 
-  deluge:
-    container_name: deluge
-    image: binhex/arch-delugevpn:2.2.0-7-08
-    labels:
-      # Backup: torrent state and settings are plain files.
-      homelab.backup: "none"
-      glance.name: "Deluge"
-      glance.icon: "sh:deluge"
-      glance.description: "Torrent Client"
-      glance.category: "media"
-      glance.url: "http://${LAN_IP}:8112"
-    ports:
-      - "8112:8112"
-      - "8118:8118"
-      - "58846:58846"
-      - "58946:58946"
-    restart: unless-stopped
-    logging: *logging
-    cap_add:
-      - NET_ADMIN
-    volumes:
-      - ${DOCKERCONFDIR}/deluge:/config:rw
-      - ${DOCKERSTORAGEDIR}/torrents:/downloads
-    environment:
-      VPN_ENABLED: ${VPN_ENABLED}
-      VPN_USER: ${VPN_USER}
-      VPN_PASS: ${VPN_PASS}
-      VPN_PROV: ${VPN_PROV}
-      VPN_CLIENT: ${VPN_CLIENT}
-      STRICT_PORT_FORWARD: ${STRICT_PORT_FORWARD}
-      ENABLE_PRIVOXY: ${ENABLE_PRIVOXY}
-      DELUGE_DAEMON_LOG_LEVEL: ${DELUGE_DAEMON_LOG_LEVEL}
-      DELUGE_WEB_LOG_LEVEL: ${DELUGE_WEB_LOG_LEVEL}
-      PUID: ${PUID}
-      PGID: ${PGID}
-      VPN_OPTIONS: ${VPN_OPTIONS}
-      LAN_NETWORK: ${LAN_NETWORK}
-      NAME_SERVERS: ${NAME_SERVERS}
-
   qbittorrent:
     container_name: qbittorrent
     image: binhex/arch-qbittorrentvpn:5.2.4-1-02
@@ -120,13 +81,14 @@ services:
       glance.url: "http://${LAN_IP}:8080"
     ports:
       - "8080:8080"
+      - "8118:8118"
     restart: unless-stopped
     logging: *logging
     cap_add:
       - NET_ADMIN
     volumes:
       - ${DOCKERCONFDIR}/qbittorrent:/config:rw
-      # Same path as in the deluge container: the torrents moved from it keep their save paths.
+      # /downloads, not /data as the image suggests: the save path of the torrents moved from Deluge.
       - ${DOCKERSTORAGEDIR}/torrents:/downloads
     environment:
       VPN_ENABLED: ${VPN_ENABLED}

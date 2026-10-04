@@ -25,7 +25,7 @@
     },
     {
       "description": "binhex tags: <app version>-<package release>-<image revision>",
-      "matchPackageNames": ["binhex/arch-delugevpn", "binhex/arch-qbittorrentvpn"],
+      "matchPackageNames": ["binhex/arch-qbittorrentvpn"],
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>\\d+)$"
     },
     {
