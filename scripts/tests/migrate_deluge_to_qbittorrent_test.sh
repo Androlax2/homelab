@@ -4,7 +4,9 @@ set -euo pipefail
 # Runs scripts/migrate_deluge_to_qbittorrent.sh in a sandbox repo with `curl` stubbed as both
 # web UIs: Deluge holds two torrents (a labelled one saved in /downloads/tv, an unlabelled one
 # in /downloads), each with its .torrent file, and qBittorrent starts empty. The stub lists a
-# torrent in qBittorrent as soon as it is added.
+# torrent in qBittorrent as soon as it is added. It answers like qBittorrent 5 unless a test
+# says otherwise: QBITTORRENT_LOGIN_ANSWER and QBITTORRENT_ADD_ANSWER are the body of a 200,
+# or "refused" for the error status qBittorrent 5 answers with.
 #
 # Usage: bash scripts/tests/migrate_deluge_to_qbittorrent_test.sh
 
@@ -27,7 +29,7 @@ create_sandbox() {
 
     export CURL_CALLS_LOG="$sandbox/curl-calls.log" QBITTORRENT_HASHES_FILE="$sandbox/qbittorrent-hashes"
     touch "$CURL_CALLS_LOG" "$QBITTORRENT_HASHES_FILE"
-    export DELUGE_LOGIN_RESULT=true QBITTORRENT_LOGIN_ANSWER=Ok.
+    export DELUGE_LOGIN_RESULT=true QBITTORRENT_LOGIN_ANSWER="" QBITTORRENT_ADD_ANSWER='{"success_count": 1}'
     export DELUGE_WEB_PASSWORD=deluge-secret QBITTORRENT_USERNAME=admin QBITTORRENT_PASSWORD=qbittorrent-secret
     DELUGE_TORRENTS=$(printf '{"%s": {"name": "Show.S01", "save_path": "/downloads/tv", "label": "tv-sonarr"}, "%s": {"name": "Film.2024", "save_path": "/downloads", "label": ""}}' \
         "$LABELLED_HASH" "$UNLABELLED_HASH")
@@ -43,12 +45,17 @@ case "$*" in
             *core.get_torrents_status*) printf '{"result": %s, "error": null, "id": 1}' "$DELUGE_TORRENTS" ;;
         esac
         ;;
-    *"/api/v2/auth/login") printf '%s' "$QBITTORRENT_LOGIN_ANSWER" ;;
+    *"/api/v2/auth/login")
+        [ "$QBITTORRENT_LOGIN_ANSWER" != refused ] || exit 22
+        printf '%s' "$QBITTORRENT_LOGIN_ANSWER"
+        ;;
     *"/api/v2/torrents/info") jq -Rn '[inputs | {hash: .}]' "$QBITTORRENT_HASHES_FILE" ;;
     *"/api/v2/torrents/categories") printf '{}' ;;
     *"/api/v2/torrents/add")
-        printf '%s\n' "$*" | sed -E 's/.*\/([0-9a-f]{40})\.torrent.*/\1/' >> "$QBITTORRENT_HASHES_FILE"
-        printf 'Ok.'
+        [ "$QBITTORRENT_ADD_ANSWER" != refused ] || exit 22
+        [ "$QBITTORRENT_ADD_ANSWER" = Fails. ] \
+            || printf '%s\n' "$*" | sed -E 's/.*\/([0-9a-f]{40})\.torrent.*/\1/' >> "$QBITTORRENT_HASHES_FILE"
+        printf '%s' "$QBITTORRENT_ADD_ANSWER"
         ;;
 esac
 STUB
@@ -128,6 +135,23 @@ check_refused_login_stops_the_run() {
     [ "$(write_call_count)" -eq 0 ] || fail_with_output "expected no change in qBittorrent"
 }
 
+# $1 = what qBittorrent answers a good login with
+check_accepted_login_adds_the_torrents() {
+    create_sandbox
+    run_migration QBITTORRENT_LOGIN_ANSWER="$1" || fail_with_output "expected exit 0"
+    [ -n "$(add_call "$LABELLED_HASH")" ] || fail_with_output "expected the torrents to be added"
+}
+
+# $1 = what qBittorrent answers the add with
+check_refused_torrent_stops_the_run() {
+    create_sandbox
+    local exit_status=0
+    run_migration QBITTORRENT_ADD_ANSWER="$1" || exit_status=$?
+    [ "$exit_status" -ne 0 ] || fail_with_output "expected a non-zero exit"
+    grep -q 'ERROR: qBittorrent refused Show.S01' "$sandbox/output" || fail_with_output "expected the refused torrent to be named"
+    ! grep -q '/api/v2/torrents/recheck$' "$CURL_CALLS_LOG" || fail_with_output "expected no recheck"
+}
+
 test_reports_a_torrent_without_its_torrent_file() {
     rm "$torrent_files_dir/$LABELLED_HASH.torrent"
     local exit_status=0
@@ -162,7 +186,12 @@ run_test "it rechecks the torrents it added" in_sandbox test_rechecks_the_torren
 run_test "it skips a torrent qBittorrent already has" in_sandbox test_skips_a_torrent_qbittorrent_already_has
 run_test "it changes nothing in qBittorrent with DRY_RUN=1" in_sandbox test_changes_nothing_in_a_dry_run
 run_test "it stops before changing anything when Deluge refuses the login" check_refused_login_stops_the_run DELUGE_LOGIN_RESULT=false
-run_test "it stops before changing anything when qBittorrent refuses the login" check_refused_login_stops_the_run QBITTORRENT_LOGIN_ANSWER=Fails.
+run_test "it stops before changing anything when qBittorrent 5 refuses the login" check_refused_login_stops_the_run QBITTORRENT_LOGIN_ANSWER=refused
+run_test "it stops before changing anything when qBittorrent 4 refuses the login" check_refused_login_stops_the_run QBITTORRENT_LOGIN_ANSWER=Fails.
+run_test "it takes qBittorrent 5's empty answer as a good login" check_accepted_login_adds_the_torrents ""
+run_test "it takes qBittorrent 4's Ok. as a good login" check_accepted_login_adds_the_torrents Ok.
+run_test "it stops and names the torrent qBittorrent 5 refuses" check_refused_torrent_stops_the_run refused
+run_test "it stops and names the torrent qBittorrent 4 refuses" check_refused_torrent_stops_the_run Fails.
 run_test "it fails and names a torrent whose .torrent file is missing" in_sandbox test_reports_a_torrent_without_its_torrent_file
 run_test "it fails when qBittorrent never lists a torrent it accepted" in_sandbox test_fails_when_qbittorrent_never_lists_an_added_torrent
 run_test "it refuses to run without DELUGE_WEB_PASSWORD" check_missing_variable DELUGE_WEB_PASSWORD
