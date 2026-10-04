@@ -180,7 +180,7 @@ services:
 
   radarr:
     container_name: radarr
-    image: lscr.io/linuxserver/radarr:6.4.4.10685-ls318
+    image: lscr.io/linuxserver/radarr:6.4.4.10685-ls319
     labels:
       homelab.backup: "sqlite"
       glance.name: "Radarr"
