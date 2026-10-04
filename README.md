@@ -81,20 +81,27 @@ deploy and is retried. `sudo scripts/run_operations.sh --list` shows what ran.
 
 ## Sonarr and Radarr settings
 
-Quality profiles and custom formats live in `config/recyclarr/`: profiles and scores in `configs/instances.yml`,
-each custom format as a JSON file in `custom-formats/<service>/`. `scripts/sync_arr_settings.sh` keeps them in sync
-both ways, every 15 minutes on the NAS:
+Quality profiles and custom formats come from the [TRaSH Guides](https://trash-guides.info), applied by
+[Configarr](https://configarr.de). `config/configarr/config.yml` only lists which of the guides' quality profiles
+to keep in Sonarr and Radarr; their custom formats and scores are the guides' own.
 
-- changed in Sonarr/Radarr → pull request `arr-settings-sync` with the new files, merged once CI passes;
-- changed in the repo → applied to the apps by Recyclarr once deployed;
-- changed on both sides since the last sync → nothing is touched and the job fails (DSM emails you) until you pick
-  a side: `sudo scripts/sync_arr_settings.sh --take-apps` or `--take-repo`.
+The `configarr` container runs once and exits:
 
-Not synced: naming (Recyclarr only knows the TRaSH Guides' presets), and deleting a quality profile from the repo
-(delete it in the app). Edit the files the way the export writes them (a score of 0 is no entry): after applying,
-the sync reads the apps back and fails if they don't match the repo exactly. Before pushing a change,
-`scripts/preview_recyclarr.sh` (your computer) shows what it would do to the apps. `scripts/export_arr_settings.sh`
-(your computer) copies the apps into the repo by hand.
+- when the `media` stack is deployed, and when the deploy restarts it after a change to `config/configarr/`;
+- every day from DSM Task Scheduler (`docker start -a configarr`), which brings in the guides' updates. A failed
+  run exits non-zero, so DSM emails its output.
+
+What it does to the apps:
+
+- a listed profile and its custom formats are created or brought back to the guides' values: a change made by
+  hand in the apps on those is overwritten by the next run;
+- a custom format no listed profile uses is deleted;
+- a profile that isn't listed is left alone, so removing one from the file doesn't delete it (delete it in the
+  app), and neither are naming and quality sizes.
+
+To see what a change would do before pushing it, on the NAS: put the edited file in a folder and run
+`sudo docker run --rm --network host --env-file stacks/media/.env -e DRY_RUN=true -v <folder>:/app/config:ro
+ghcr.io/raydak-labs/configarr:<version in stacks/media/compose.yml>`.
 
 ## Backups
 
@@ -213,8 +220,6 @@ Every restic command runs through the stack, e.g. `sudo scripts/compose.sh backu
 | `backup_databases.sh` | the database dumps, by `homelab.backup` label (run by `backup_nas.sh`) |
 | `backup_status.sh` | hourly: the backup numbers the dashboard shows (see Backups, Dashboard) |
 | `check_backups.sh` | fails once when a backup is over 26 hours old (run by `deploy.sh`) |
-| `sync_arr_settings.sh` | two-way sync of the Sonarr/Radarr settings (every 15 minutes, root; `--take-apps`, `--take-repo`) |
-| `export_arr_settings.sh`, `preview_recyclarr.sh` | copy Sonarr/Radarr settings into the repo, preview a sync (your computer) |
 | `check_stacks.sh`, `check_glance_config.sh` | CI checks, runnable locally |
 | `migration_helpers.sh` | helpers used once, for the migration from Portainer |
 | `migrate_deluge_to_qbittorrent.sh` | used once, by hand: copies Deluge's torrents into qBittorrent, stopped (`DRY_RUN=1` to simulate) |
@@ -236,11 +241,7 @@ Compose). CI runs them, the two checks and gitleaks on every push and pull reque
    through them, run `sudo scripts/run_operations.sh --mark-all-done` first.
 5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
 6. Backups: follow [Backups, Setup](#setup). Until a backup succeeds, the deploy reports it.
-7. Settings sync: create a fine-grained GitHub token for this repository only, with Contents and Pull requests set
-   to read and write, and save it root-only on the NAS:
-   `sudo sh -c 'umask 077; cat > /volume1/docker/homelab/.github-token'` (paste, Enter, Ctrl-D). Turn on "Allow
-   auto-merge" in the repository settings. Then Task Scheduler: `bash /volume1/docker/homelab/scripts/sync_arr_settings.sh`
-   as root every 15 minutes, email on failure. When the token expires, the job fails until you save a new one.
+7. Sonarr and Radarr settings: Task Scheduler, `docker start -a configarr` as root every day, email on failure.
 
 ## Security
 
@@ -260,8 +261,7 @@ gh api -X PUT repos/Androlax2/homelab/branches/main/protection --input - <<'JSON
 JSON
 ```
 
-The repo is public: secrets only in the NAS `.env` files, and security reviews are not committed. The NAS holds a
-GitHub token for the settings sync: its pull requests may only change `config/recyclarr/` (CI checks it).
+The repo is public: secrets only in the NAS `.env` files, and security reviews are not committed.
 
 ## Troubleshooting
 
