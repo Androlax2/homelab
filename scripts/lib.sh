@@ -6,16 +6,6 @@ log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 # scripts/check_stacks.sh requires the label on every service with a writable volume.
 BACKUP_KINDS="postgres sqlite sqlite-unchecked bolt none"
 
-# Asks for an API key (hidden input) unless the variable already holds one, then exports it.
-# $1 = variable name, $2 = what the key is for
-ask_api_key() {
-    if [ -z "${!1:-}" ]; then
-        read -rsp "$2 API key: " "${1?}"
-        echo
-    fi
-    export "${1?}"
-}
-
 # Prints the value of <key> in a dotenv file without its surrounding quotes, or nothing if absent.
 # $1 = file, $2 = key
 env_value() {
