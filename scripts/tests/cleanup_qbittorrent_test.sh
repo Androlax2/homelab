@@ -5,7 +5,9 @@ set -euo pipefail
 # the torrent under test (its content at TORRENT_CONTENT_PATH, saved in TORRENT_SAVE_PATH)
 # and an unrelated one, and the downloads folder one orphaned file (ORPHAN_FILE), old
 # enough to be purged. By default the orphan sits in the folder of the torrent under test,
-# so a healthy run removes that torrent and only that one.
+# so a healthy run removes that torrent and only that one. The stub answers a login like
+# qBittorrent 5 unless a test says otherwise: QBITTORRENT_LOGIN_ANSWER is the body of a
+# 200, or "refused" for the 401 qBittorrent 5 answers a wrong login with.
 #
 # Usage: bash scripts/tests/cleanup_qbittorrent_test.sh
 
@@ -24,7 +26,7 @@ create_sandbox() {
     touch "$DOCKER_CALLS_LOG" "$CURL_CALLS_LOG"
     export TORRENT_CONTENT_PATH=/downloads/Show.S01 TORRENT_SAVE_PATH=/downloads
     export ORPHAN_FILE=/downloads/Show.S01/Show.S01E01.mkv
-    export QBITTORRENT_LOGIN_ANSWER=Ok.
+    export QBITTORRENT_LOGIN_ANSWER=""
     export QBITTORRENT_USERNAME=admin QBITTORRENT_PASSWORD=test SONARR_API_KEY=test RADARR_API_KEY=test
 
     cat > "$sandbox/bin/docker" <<'STUB'
@@ -41,7 +43,10 @@ STUB
 printf '%s\n' "$*" >> "$CURL_CALLS_LOG"
 case "$*" in
     *":${CURL_FAILING_PORT:-none}/"*) exit 22 ;;
-    *"/api/v2/auth/login") printf '%s' "$QBITTORRENT_LOGIN_ANSWER" ;;
+    *"/api/v2/auth/login")
+        [ "$QBITTORRENT_LOGIN_ANSWER" != refused ] || exit 22
+        printf '%s' "$QBITTORRENT_LOGIN_ANSWER"
+        ;;
     *"/api/v2/torrents/info")
         if [ -z "$TORRENT_CONTENT_PATH" ]; then
             printf '[]'
@@ -116,6 +121,16 @@ check_torrent_is_kept() {
     [ -z "$(removed_hashes)" ] || fail_with_output "removed a torrent, when none is the orphan's"
 }
 
+# $1 = what qBittorrent answers a good login with
+check_login_is_accepted() {
+    create_sandbox
+    export QBITTORRENT_LOGIN_ANSWER="$1"
+    local exit_status=0
+    run_cleanup || exit_status=$?
+    [ "$exit_status" -eq 0 ] || fail_with_output "expected exit 0, got $exit_status"
+    [ "$(removed_hashes)" = "$TORRENT_HASH" ] || fail_with_output "expected the orphaned torrent to be removed"
+}
+
 # $@ = what makes the run stop before deleting, as environment assignments
 check_run_stops() {
     create_sandbox
@@ -141,7 +156,10 @@ run_test "it removes an orphaned torrent when both queues answer" check_api_outc
 run_test "it stops before deleting anything when the Sonarr queue is unreachable" check_api_outcome 8989 stops
 run_test "it stops before deleting anything when the Radarr queue is unreachable" check_api_outcome 7878 stops
 run_test "it stops before deleting anything when qBittorrent is unreachable" check_api_outcome 8080 stops
-run_test "it stops before deleting anything when qBittorrent refuses the login" check_run_stops QBITTORRENT_LOGIN_ANSWER=Fails.
+run_test "it stops before deleting anything when qBittorrent 5 refuses the login" check_run_stops QBITTORRENT_LOGIN_ANSWER=refused
+run_test "it stops before deleting anything when qBittorrent 4 refuses the login" check_run_stops QBITTORRENT_LOGIN_ANSWER=Fails.
+run_test "it takes qBittorrent 5's empty answer as a good login" check_login_is_accepted ""
+run_test "it takes qBittorrent 4's Ok. as a good login" check_login_is_accepted Ok.
 run_test "it stops before purging anything when qBittorrent lists no torrent" check_run_stops TORRENT_CONTENT_PATH=
 run_test "it removes a single-file torrent whose file is the orphan" \
     check_torrent_is_removed /downloads/Film.2024.mkv /downloads /downloads/Film.2024.mkv

@@ -74,6 +74,8 @@ fetch_arr_queues() {
 # Ouvre une session sur l'API de qBittorrent (cookie dans QBITTORRENT_COOKIES).
 # Le Referer est obligatoire : qBittorrent refuse un login dont le Referer
 # n'est pas sa propre adresse.
+# qBittorrent 5 repond 401 a un mauvais login et un 200 vide a un bon ; avant
+# la version 5, c'etait un 200 dans les deux cas, avec "Fails." ou "Ok.".
 qbittorrent_login() {
     local answer
     # Mot de passe lu depuis un fichier : en argument, il serait visible dans `ps`.
@@ -81,8 +83,8 @@ qbittorrent_login() {
     answer=$(curl -sf -c "$QBITTORRENT_COOKIES" -H "Referer: $QBITTORRENT_URL" \
         --data-urlencode "username=$QBITTORRENT_USERNAME" \
         --data-urlencode "password@$WORK_DIR/password" \
-        "$QBITTORRENT_URL/api/v2/auth/login") || answer=""
-    [ "$answer" = "Ok." ]
+        "$QBITTORRENT_URL/api/v2/auth/login") || return 1
+    [ "$answer" != "Fails." ]
 }
 
 # ---------- 1. Snapshot des torrents qBittorrent (paires chemin<TAB>hash) ----------
