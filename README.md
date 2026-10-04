@@ -217,6 +217,7 @@ Every restic command runs through the stack, e.g. `sudo scripts/compose.sh backu
 | `export_arr_settings.sh`, `preview_recyclarr.sh` | copy Sonarr/Radarr settings into the repo, preview a sync (your computer) |
 | `check_stacks.sh`, `check_glance_config.sh` | CI checks, runnable locally |
 | `migration_helpers.sh` | helpers used once, for the migration from Portainer |
+| `migrate_deluge_to_qbittorrent.sh` | used once, by hand: copies Deluge's torrents into qBittorrent, stopped (`DRY_RUN=1` to simulate) |
 
 Tests: `for test_file in scripts/tests/*_test.sh; do bash "$test_file"; done` (needs bash, git, jq, flock, Docker
 Compose). CI runs them, the two checks and gitleaks on every push and pull request.

@@ -107,6 +107,43 @@ services:
       LAN_NETWORK: ${LAN_NETWORK}
       NAME_SERVERS: ${NAME_SERVERS}
 
+  qbittorrent:
+    container_name: qbittorrent
+    image: binhex/arch-qbittorrentvpn:5.2.4-1-02
+    labels:
+      # Backup: torrent state and settings are plain files.
+      homelab.backup: "none"
+      glance.name: "qBittorrent"
+      glance.icon: "sh:qbittorrent"
+      glance.description: "Torrent Client"
+      glance.category: "media"
+      glance.url: "http://${LAN_IP}:8080"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    logging: *logging
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ${DOCKERCONFDIR}/qbittorrent:/config:rw
+      # Same path as in the deluge container: the torrents moved from it keep their save paths.
+      - ${DOCKERSTORAGEDIR}/torrents:/downloads
+    environment:
+      VPN_ENABLED: ${VPN_ENABLED}
+      VPN_USER: ${VPN_USER}
+      VPN_PASS: ${VPN_PASS}
+      VPN_PROV: ${VPN_PROV}
+      VPN_CLIENT: ${VPN_CLIENT}
+      STRICT_PORT_FORWARD: ${STRICT_PORT_FORWARD}
+      ENABLE_PRIVOXY: ${ENABLE_PRIVOXY}
+      # The web UI rejects requests when this differs from the published port.
+      WEBUI_PORT: 8080
+      PUID: ${PUID}
+      PGID: ${PGID}
+      VPN_OPTIONS: ${VPN_OPTIONS}
+      LAN_NETWORK: ${LAN_NETWORK}
+      NAME_SERVERS: ${NAME_SERVERS}
+
   prowlarr:
     container_name: prowlarr
     image: lscr.io/linuxserver/prowlarr:2.6.5.5623-ls162

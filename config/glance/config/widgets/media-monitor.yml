@@ -28,6 +28,9 @@
     - title: Deluge
       url: http://${LAN_IP}:8112
       icon: sh:deluge
+    - title: qBittorrent
+      url: http://${LAN_IP}:8080
+      icon: sh:qbittorrent
     - title: Maintainerr
       url: http://${LAN_IP}:6246
       icon: sh:maintainerr
