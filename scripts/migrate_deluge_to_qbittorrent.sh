@@ -77,11 +77,13 @@ qbittorrent_login() {
     local answer
     printf '%s' "$QBITTORRENT_PASSWORD" > "$work_dir/qbittorrent-password"
     # The Referer is required: qBittorrent rejects a login whose Referer is not its own address.
+    # qBittorrent 5 answers a wrong login with a 401 and a good one with an empty 200; before 5,
+    # both were a 200, saying "Fails." or "Ok.".
     answer=$(curl -sf -c "$qbittorrent_cookies" -H "Referer: $QBITTORRENT_URL" \
         --data-urlencode "username=$QBITTORRENT_USERNAME" \
         --data-urlencode "password@$work_dir/qbittorrent-password" \
-        "$QBITTORRENT_URL/api/v2/auth/login") || answer=""
-    [ "$answer" = "Ok." ]
+        "$QBITTORRENT_URL/api/v2/auth/login") || return 1
+    [ "$answer" != "Fails." ]
 }
 
 # Prints the hashes of the torrents qBittorrent holds, one per line.
@@ -155,15 +157,15 @@ while IFS= read -r torrent_hash; do
 
     # autoTMM=false: with automatic management on, the category would decide the save path.
     # stopped and paused are the same option, renamed in qBittorrent 5.
-    add_answer=$(qbittorrent_api torrents/add \
+    # A torrent it can't add: a 409 from qBittorrent 5, a 200 saying "Fails." before 5.
+    if ! add_answer=$(qbittorrent_api torrents/add \
         -F "torrents=@$torrent_file" \
         --form-string "savepath=$save_path" \
         --form-string "category=$label" \
         --form-string autoTMM=false \
         --form-string contentLayout=Original \
         --form-string stopped=true \
-        --form-string paused=true)
-    if [ "$add_answer" = "Fails." ]; then
+        --form-string paused=true) || [ "$add_answer" = "Fails." ]; then
         log "ERROR: qBittorrent refused $torrent_name ($torrent_file)"
         exit 1
     fi
