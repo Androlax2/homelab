@@ -1,5 +1,7 @@
+# What is playing on Plex, read from Tautulli, and on Jellyfin. Both widgets share the template
+# below through a YAML anchor.
 - type: custom-api
-  title: Media Server
+  title: Plex
   cache: 1m
   options:
     media-server: "tautulli"
@@ -13,7 +15,7 @@
     play-state: "indicator"
     show-thumbnail: true
     full-thumbnail: true
-  template: |
+  template: &media-server-playing-template |
     {{ $mediaServer := .Options.StringOr "media-server" "" }}
     {{ $baseURL := .Options.StringOr "base-url" "" }}
     {{ $thumbnailBaseURL := .Options.StringOr "thumbnail-base-url" $baseURL }}
@@ -83,9 +85,14 @@
       {{ end }}
 
     {{ else if or (eq $mediaServer "jellyfin") (eq $mediaServer "emby") }}
+      {{/* Jellyfin only reads api_key while its legacy authorization setting is on: ApiKey is the name it keeps. */}}
+      {{ $apiKeyParameter := "api_key" }}
+      {{ if eq $mediaServer "jellyfin" }}
+        {{ $apiKeyParameter = "ApiKey" }}
+      {{ end }}
       {{ $sessionsRequestURL = concat $baseURL "/Sessions" }}
       {{ $sessionsCall = newRequest $sessionsRequestURL
-        | withParameter "api_key" $apiKey
+        | withParameter $apiKeyParameter $apiKey
         | withParameter "activeWithinSeconds" "30"
         | withHeader "Accept" "application/json"
         | getResponse }}
@@ -241,7 +248,11 @@
           {{ if $isShows }}
             {{ $thumbID = $session.String "NowPlayingItem.ParentId" }}
           {{ end }}
-          {{ $thumbURL = concat $thumbnailBaseURL "/Items/" $thumbID "/Images/Primary?api_key=" $apiKey }}
+          {{/* Jellyfin serves item images without a key: its key, an admin one, stays out of the page. */}}
+          {{ $thumbURL = concat $thumbnailBaseURL "/Items/" $thumbID "/Images/Primary" }}
+          {{ if eq $mediaServer "emby" }}
+            {{ $thumbURL = concat $thumbURL "?api_key=" $apiKey }}
+          {{ end }}
 
           {{ $duration = $session.Float "NowPlayingItem.RunTimeTicks" }}
           {{ $offset = $session.Float "PlayState.PositionTicks" }}
@@ -361,3 +372,18 @@
     </div>
     {{ end }}
     {{ end }}
+
+- type: custom-api
+  title: Jellyfin
+  cache: 1m
+  options:
+    media-server: "jellyfin"
+    base-url: http://${JELLYFIN_URL}
+    thumbnail-base-url: https://jellyfin.${PROXY_DOMAIN}
+    api-key: ${JELLYFIN_API_KEY}
+    small-column: false
+    compact: false
+    play-state: "indicator"
+    show-thumbnail: true
+    full-thumbnail: true
+  template: *media-server-playing-template

@@ -1,0 +1,74 @@
+# The containers using the most CPU and the most memory, from Beszel. Its API asks for a login:
+# a read-only Beszel user made for the dashboard (see README, Monitoring setup), which the
+# template logs in with on every refresh.
+- type: custom-api
+  title: Top containers
+  title-url: https://beszel.${PROXY_DOMAIN}
+  cache: 1m
+  options:
+    base-url: http://beszel:8090
+    email: ${BESZEL_GLANCE_EMAIL}
+    password: ${BESZEL_GLANCE_PASSWORD}
+    limit: 5
+  template: |
+    {{ $baseURL := .Options.StringOr "base-url" "" }}
+    {{ $email := .Options.StringOr "email" "" }}
+    {{ $password := .Options.StringOr "password" "" }}
+    {{ $limit := .Options.IntOr "limit" 5 | printf "%d" }}
+
+    {{ define "beszelContainers" }}
+      <ul class="list list-gap-10 margin-top-5">
+        {{ range . }}
+          {{ $memoryMB := .Float "memory" }}
+          <li class="flex justify-between items-center">
+            <span class="color-highlight text-truncate">{{ .String "name" }}</span>
+            <span class="size-h6 shrink-0">
+              {{ printf "%.1f" (.Float "cpu") }}% ·
+              {{ if ge $memoryMB 1024.0 }}{{ printf "%.1f" (div $memoryMB 1024.0) }} GB{{ else }}{{ printf "%.0f" $memoryMB }} MB{{ end }}
+            </span>
+          </li>
+        {{ end }}
+      </ul>
+    {{ end }}
+
+    {{ if or (eq $email "") (eq $password "") }}
+      <p class="color-negative">BESZEL_GLANCE_EMAIL or BESZEL_GLANCE_PASSWORD is not set</p>
+    {{ else }}
+      {{ $login := newRequest (concat $baseURL "/api/collections/users/auth-with-password")
+        | withParameter "fields" "token"
+        | withHeader "Content-Type" "application/json"
+        | withStringBody (printf `{"identity": "%s", "password": "%s"}` $email $password)
+        | getResponse }}
+
+      {{ if ne $login.Response.StatusCode 200 }}
+        <p class="color-negative">Beszel login: {{ $login.Response.Status }}</p>
+      {{ else }}
+        {{ $authorization := concat "Bearer " ($login.JSON.String "token") }}
+        {{ $containersURL := concat $baseURL "/api/collections/containers/records" }}
+        {{ $byCPU := newRequest $containersURL
+          | withHeader "Authorization" $authorization
+          | withParameter "sort" "-cpu"
+          | withParameter "perPage" $limit
+          | withParameter "skipTotal" "true"
+          | getResponse }}
+        {{ $byMemory := newRequest $containersURL
+          | withHeader "Authorization" $authorization
+          | withParameter "sort" "-memory"
+          | withParameter "perPage" $limit
+          | withParameter "skipTotal" "true"
+          | getResponse }}
+
+        {{ if ne $byCPU.Response.StatusCode 200 }}
+          <p class="color-negative">Beszel containers: {{ $byCPU.Response.Status }}</p>
+        {{ else if ne $byMemory.Response.StatusCode 200 }}
+          <p class="color-negative">Beszel containers: {{ $byMemory.Response.Status }}</p>
+        {{ else if eq (len ($byCPU.JSON.Array "items")) 0 }}
+          <p class="color-negative">Beszel shows no container to this user: is SHARE_ALL_SYSTEMS on?</p>
+        {{ else }}
+          <div class="size-h6">BY CPU</div>
+          {{ template "beszelContainers" ($byCPU.JSON.Array "items") }}
+          <div class="size-h6 margin-top-10">BY MEMORY</div>
+          {{ template "beszelContainers" ($byMemory.JSON.Array "items") }}
+        {{ end }}
+      {{ end }}
+    {{ end }}
