@@ -21,6 +21,10 @@ set -euo pipefail
 # Every run, even with nothing to deploy, also checks that the nightly database backup
 # still succeeds (check_backups.sh): a problem fails the run once, so DSM emails it,
 # without holding any deploy back.
+#
+# A run that ends without an error pings DEPLOY_HEARTBEAT_URL (healthchecks.io), which
+# alerts when the pings stop: DSM's emails can't say that the scheduler stopped or that
+# the server is off.
 # ============================================================
 
 # DSM Task Scheduler's PATH does not include /usr/local/bin, where docker lives.
@@ -47,7 +51,18 @@ assert_env_complete() {
     fi
 }
 
+# Ends the run, telling the dead-man's switch only when nothing went wrong.
+# $1 = exit status
+finish_run() {
+    if [ "$1" -eq 0 ]; then
+        ping_heartbeat "$deploy_heartbeat_url"
+    fi
+    exit "$1"
+}
+
 cd "$REPO_DIR"
+
+deploy_heartbeat_url=$(required_env_value "$REPO_DIR/stacks/common.env" DEPLOY_HEARTBEAT_URL common)
 
 exec 9>"$REPO_DIR/.deploy.lock"
 if ! flock -n 9; then
@@ -65,7 +80,7 @@ backups_status=0
 if [ -f "$LAST_DEPLOYED_FILE" ]; then
     last_deployed_commit=$(cat "$LAST_DEPLOYED_FILE")
     if [ "$last_deployed_commit" = "$current_commit" ]; then
-        exit "$backups_status"
+        finish_run "$backups_status"
     fi
     log "Deploying ${last_deployed_commit:0:7}..${current_commit:0:7}"
     changed_paths=$(git diff --name-only --no-renames "$last_deployed_commit" "$current_commit")
@@ -122,4 +137,4 @@ if [ ${#removed_stacks[@]} -gt 0 ]; then
     done
     exit 1
 fi
-exit "$backups_status"
+finish_run "$backups_status"

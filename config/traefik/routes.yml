@@ -26,10 +26,18 @@ http:
       entryPoints: [tailnet]
       rule: 'Host(`filebrowser.{{ env "PROXY_DOMAIN" }}`)'
       service: filebrowser
-    portainer:
+    dozzle:
       entryPoints: [tailnet]
-      rule: 'Host(`portainer.{{ env "PROXY_DOMAIN" }}`)'
-      service: portainer
+      rule: 'Host(`dozzle.{{ env "PROXY_DOMAIN" }}`)'
+      service: dozzle
+    beszel:
+      entryPoints: [tailnet]
+      rule: 'Host(`beszel.{{ env "PROXY_DOMAIN" }}`)'
+      service: beszel
+    gatus:
+      entryPoints: [tailnet]
+      rule: 'Host(`gatus.{{ env "PROXY_DOMAIN" }}`)'
+      service: gatus
     immich:
       entryPoints: [tailnet]
       rule: 'Host(`immich.{{ env "PROXY_DOMAIN" }}`)'
@@ -88,11 +96,18 @@ http:
       loadBalancer:
         servers:
           - url: 'http://{{ env "LAN_IP" }}:8095'
-    portainer:
+    dozzle:
       loadBalancer:
-        serversTransport: portainer
         servers:
-          - url: 'https://{{ env "LAN_IP" }}:9443'
+          - url: 'http://{{ env "LAN_IP" }}:8097'
+    beszel:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8098'
+    gatus:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8099'
     immich:
       loadBalancer:
         servers:
@@ -129,9 +144,3 @@ http:
       loadBalancer:
         servers:
           - url: 'http://{{ env "LAN_IP" }}:5454'
-
-  serversTransports:
-    # Portainer only serves HTTPS, with a certificate it signed itself, which Traefik can't
-    # verify. The connection never leaves the NAS.
-    portainer:
-      insecureSkipVerify: true

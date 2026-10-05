@@ -9,6 +9,10 @@
     - size: full
       widgets:
         $include: ../widgets/media-monitor.yml
+        - type: split-column
+          max-columns: 2
+          widgets:
+            $include: ../widgets/arr-queue.yml
         $include: ../widgets/media-server-history.yml
         - type: split-column
           max-columns: 2

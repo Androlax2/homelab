@@ -26,6 +26,17 @@ required_env_value() {
     printf '%s\n' "$value"
 }
 
+# Tells healthchecks.io that a scheduled job just succeeded: it alerts when these pings stop,
+# whatever the reason (the job fails, the scheduler stopped, the server is off). A ping that
+# can't be sent is only logged: failing the job for it would hide the job's own result, and
+# the missing ping is already the alert.
+# $1 = ping URL
+ping_heartbeat() {
+    if ! curl -fsS -m 10 --retry 5 -o /dev/null "$1"; then
+        log "WARNING: the heartbeat ping failed (curl's error is above)"
+    fi
+}
+
 # Brings <stack> up with scripts/compose.sh, unless none of its services runs by default: when all
 # of them are behind a profile (like the backup's restic, only run on demand), there is nothing to
 # bring up, and `compose up` would fail with "no service selected".

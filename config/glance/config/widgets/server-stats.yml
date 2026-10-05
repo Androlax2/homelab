@@ -1,6 +1,12 @@
-# Disk % reflects the container filesystem; to show /volume1 instead, bind-mount
-# it read-only into the container and list it under a `mountpoints:` option.
+# Disk usage is /volume1's, read from /volume1-usage: a folder of that volume, mounted into
+# the container for this only (stacks/infrastructure/compose.yml). Every other mountpoint
+# Glance sees is the container's own.
 - type: server-stats
   servers:
     - type: local
       name: Synology NAS
+      hide-mountpoints-by-default: true
+      mountpoints:
+        "/volume1-usage":
+          name: volume1
+          hide: false

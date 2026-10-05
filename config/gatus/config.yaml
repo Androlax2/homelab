@@ -1,0 +1,93 @@
+# Uptime checks, on the LAN addresses: Gatus is not on the tailnet, so it can't reach the
+# proxy ones. That leaves two things it can't see: the proxy itself, its certificate
+# included, and the public plex route.
+#
+# The ${...} values come from the gatus service's environment
+# (stacks/infrastructure/compose.yml).
+
+storage:
+  type: sqlite
+  path: /data/data.db
+
+alerting:
+  email:
+    host: ${GATUS_SMTP_HOST}
+    port: ${GATUS_SMTP_PORT}
+    username: "${GATUS_SMTP_USERNAME}"
+    password: "${GATUS_SMTP_PASSWORD}"
+    from: ${GATUS_SMTP_FROM}
+    to: ${GATUS_ALERT_TO}
+    # One mail after 3 failed checks in a row, another once 2 pass again.
+    default-alert:
+      failure-threshold: 3
+      success-threshold: 2
+      send-on-resolved: true
+
+default-endpoint: &defaults
+  interval: 1m
+  conditions:
+    - "[STATUS] == 200"
+  alerts:
+    - type: email
+
+endpoints:
+  - name: Glance
+    <<: *defaults
+    group: infrastructure
+    url: http://${LAN_IP}:8090
+  - name: FileBrowser
+    <<: *defaults
+    group: infrastructure
+    url: http://${LAN_IP}:8095
+
+  - name: Vaultwarden
+    <<: *defaults
+    group: security
+    url: http://${LAN_IP}:8580/alive
+
+  - name: Immich
+    <<: *defaults
+    group: photos
+    url: http://${LAN_IP}:2283
+
+  - name: Opusline
+    <<: *defaults
+    group: opusline
+    url: http://${LAN_IP}:${OPUSLINE_PORT}
+
+  - name: Plex
+    <<: *defaults
+    group: media
+    url: http://${LAN_IP}:32400/identity
+  - name: Seerr
+    <<: *defaults
+    group: media
+    url: http://${LAN_IP}:5055/api/v1/status
+  - name: Sonarr
+    <<: *defaults
+    group: media
+    url: http://${LAN_IP}:8989/ping
+  - name: Radarr
+    <<: *defaults
+    group: media
+    url: http://${LAN_IP}:7878/ping
+  - name: Prowlarr
+    <<: *defaults
+    group: media
+    url: http://${LAN_IP}:9696/ping
+  - name: Tautulli
+    <<: *defaults
+    group: media
+    url: http://${LAN_IP}:8181
+  - name: qBittorrent
+    <<: *defaults
+    group: media
+    url: http://${LAN_IP}:8080
+  - name: Maintainerr
+    <<: *defaults
+    group: media
+    url: http://${LAN_IP}:6246
+  - name: Notifiarr
+    <<: *defaults
+    group: media
+    url: http://${LAN_IP}:5454

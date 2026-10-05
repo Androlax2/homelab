@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Runs scripts/deploy.sh against a throwaway git remote, with `docker` stubbed to
-# record its arguments instead of touching containers.
+# record its arguments instead of touching containers, and `curl` stubbed to record
+# the heartbeat pings instead of sending them.
 #
 # Usage: bash scripts/tests/deploy_test.sh
 
@@ -14,6 +15,8 @@ source "$SCRIPTS_DIR/tests/lib.sh"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=deploy-test GIT_AUTHOR_EMAIL=deploy-test@example.invalid
 export GIT_COMMITTER_NAME=deploy-test GIT_COMMITTER_EMAIL=deploy-test@example.invalid
+
+DEPLOY_HEARTBEAT_URL=https://heartbeat.example.invalid/deploy
 
 # origin.git plays GitHub, dev is where changes are pushed from, nas is the
 # checkout deploy.sh runs in.
@@ -35,7 +38,14 @@ if [[ "$*" == *" config --services" ]]; then
 fi
 [ "${DOCKER_SHOULD_FAIL:-0}" != "1" ]
 STUB
-    chmod +x "$sandbox/bin/docker"
+    # Records the URL it is asked for, its last argument. STUB_CURL_FAILS=1: the ping can't be sent.
+    export HEARTBEAT_PINGS_LOG="$sandbox/heartbeat-pings.log"
+    cat > "$sandbox/bin/curl" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "${!#}" >> "$HEARTBEAT_PINGS_LOG"
+[ "${STUB_CURL_FAILS:-0}" != "1" ]
+STUB
+    chmod +x "$sandbox/bin/docker" "$sandbox/bin/curl"
     export PATH="$sandbox/bin:$PATH"
 
     git init --quiet --bare --initial-branch=main "$sandbox/origin.git"
@@ -54,7 +64,8 @@ STUB
     git -C "$sandbox/dev" remote add origin "$sandbox/origin.git"
     git -C "$sandbox/dev" push --quiet origin main
     git clone --quiet "$sandbox/origin.git" "$sandbox/nas"
-    printf 'TZ=Europe/Paris\nBACKUPDIR=%s\n' "$sandbox/backups" > "$sandbox/nas/stacks/common.env"
+    printf 'TZ=Europe/Paris\nBACKUPDIR=%s\nDEPLOY_HEARTBEAT_URL=%s\n' "$sandbox/backups" "$DEPLOY_HEARTBEAT_URL" \
+        > "$sandbox/nas/stacks/common.env"
     # A database backup that just succeeded, so check_backups.sh stays quiet unless a test ages it.
     mkdir -p "$sandbox/backups"
     touch "$sandbox/backups/last-success" "$sandbox/backups/offsite-last-success"
@@ -131,6 +142,23 @@ expect_deploy_failure_mentioning() {
     fi
     if ! grep -qF "$1" "$sandbox/deploy.out"; then
         echo "      expected the output to mention: $1"
+        return 1
+    fi
+}
+
+forget_heartbeat_pings() {
+    rm -f "$HEARTBEAT_PINGS_LOG"
+}
+
+# $1 = the URLs expected to have been pinged, one per line (empty for none)
+assert_heartbeat_pings() {
+    local expected_pings="$1"
+    local actual_pings=""
+    if [ -f "$HEARTBEAT_PINGS_LOG" ]; then
+        actual_pings=$(cat "$HEARTBEAT_PINGS_LOG")
+    fi
+    if [ "$actual_pings" != "$expected_pings" ]; then
+        printf '      expected heartbeat pings:\n%s\n      actual heartbeat pings:\n%s\n' "$expected_pings" "$actual_pings"
         return 1
     fi
 }
@@ -304,6 +332,42 @@ test_failed_before_operation_changes_no_container() {
     assert_docker_calls "$(compose_up_call media)"
 }
 
+test_successful_deploy_pings_the_heartbeat() {
+    run_deploy
+    assert_heartbeat_pings "$DEPLOY_HEARTBEAT_URL"
+}
+
+test_run_with_nothing_to_deploy_pings_the_heartbeat() {
+    run_deploy
+    forget_heartbeat_pings
+    run_deploy
+    assert_heartbeat_pings "$DEPLOY_HEARTBEAT_URL"
+}
+
+test_failed_deploy_does_not_ping_the_heartbeat() {
+    run_deploy
+    forget_heartbeat_pings
+    push_edit stacks/media/compose.yml
+    if (export DOCKER_SHOULD_FAIL=1; run_deploy); then
+        echo "      expected the deploy to fail"
+        return 1
+    fi
+    assert_heartbeat_pings ""
+}
+
+test_empty_heartbeat_url_holds_the_deploy() {
+    sed -i 's/^DEPLOY_HEARTBEAT_URL=.*/DEPLOY_HEARTBEAT_URL=/' "$sandbox/nas/stacks/common.env"
+    expect_deploy_failure_mentioning "DEPLOY_HEARTBEAT_URL is not set"
+    assert_docker_calls ""
+}
+
+test_ping_that_cannot_be_sent_does_not_fail_the_deploy() {
+    export STUB_CURL_FAILS=1
+    run_deploy || { echo "      expected the deploy to succeed"; return 1; }
+    grep -q 'WARNING: the heartbeat ping failed' "$sandbox/deploy.out" \
+        || { echo "      expected the failed ping to be logged"; return 1; }
+}
+
 run_test "it deploys every stack and restarts every config container on the first run" in_sandbox test_first_run_deploys_everything
 run_test "it reports failing database backups once, without holding back the deploy" in_sandbox test_stale_backups_are_reported_once_without_holding_the_deploy
 run_test "it skips a stack whose services are all behind a profile, and deploys the others" in_sandbox test_profile_only_stack_is_skipped_and_the_others_deploy
@@ -320,5 +384,10 @@ run_test "it runs a one-time operation only once" in_sandbox test_operation_runs
 run_test "a failing one-time operation holds the commit back until it passes" in_sandbox test_failed_operation_holds_the_commit_until_it_passes
 run_test "it runs a .before.sh operation before bringing the stacks up" in_sandbox test_before_operation_runs_before_the_stacks
 run_test "a failing .before.sh operation changes no container, and is retried" in_sandbox test_failed_before_operation_changes_no_container
+run_test "it pings the deploy heartbeat after a successful deploy" in_sandbox test_successful_deploy_pings_the_heartbeat
+run_test "it pings the deploy heartbeat when main has not moved" in_sandbox test_run_with_nothing_to_deploy_pings_the_heartbeat
+run_test "it does not ping the deploy heartbeat when the deploy fails" in_sandbox test_failed_deploy_does_not_ping_the_heartbeat
+run_test "it changes nothing while DEPLOY_HEARTBEAT_URL is empty" in_sandbox test_empty_heartbeat_url_holds_the_deploy
+run_test "a heartbeat ping that cannot be sent does not fail the deploy" in_sandbox test_ping_that_cannot_be_sent_does_not_fail_the_deploy
 
 finish_tests

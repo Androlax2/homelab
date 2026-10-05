@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # Runs scripts/backup_nas.sh in a sandbox repo with the real compose.sh, `docker` stubbed to
-# record the restic commands it receives, `date +%u` stubbed to pick the weekday, and
-# backup_databases.sh replaced by a stub that records it ran.
+# record the restic commands it receives, `date +%u` stubbed to pick the weekday,
+# backup_databases.sh replaced by a stub that records it ran, and `curl` stubbed to record
+# the heartbeat ping instead of sending it.
 #
 # Usage: bash scripts/tests/backup_nas_test.sh
 
@@ -12,6 +13,7 @@ SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$SCRIPTS_DIR/tests/lib.sh"
 
 REAL_DATE=$(command -v date)
+BACKUP_HEARTBEAT_URL=https://heartbeat.example.invalid/backup
 
 create_sandbox() {
     sandbox=$(mktemp -d)
@@ -20,7 +22,7 @@ create_sandbox() {
     backup_root="$sandbox/backups"
     mkdir -p "$repo_dir/scripts" "$repo_dir/stacks/backup" "$sandbox/bin" "$backup_root"
     cp "$SCRIPTS_DIR/backup_nas.sh" "$SCRIPTS_DIR/compose.sh" "$SCRIPTS_DIR/lib.sh" "$repo_dir/scripts/"
-    printf 'BACKUPDIR=%s\n' "$backup_root" > "$repo_dir/stacks/common.env"
+    printf 'BACKUPDIR=%s\nBACKUP_HEARTBEAT_URL=%s\n' "$backup_root" "$BACKUP_HEARTBEAT_URL" > "$repo_dir/stacks/common.env"
     printf 'services: {}\n' > "$repo_dir/stacks/backup/compose.yml"
     printf 'RESTIC_PASSWORD=\n' > "$repo_dir/stacks/backup/.env.example"
     printf 'RESTIC_PASSWORD=secret\n' > "$repo_dir/stacks/backup/.env"
@@ -47,7 +49,14 @@ STUB
 #!/usr/bin/env bash
 if [ "$*" = "+%u" ]; then echo "$STUB_WEEKDAY"; else exec "$REAL_DATE" "$@"; fi
 STUB
-    chmod +x "$sandbox/bin/docker" "$sandbox/bin/date" "$repo_dir/scripts/backup_databases.sh"
+    # Records the URL it is asked for, its last argument, apart from the calls above.
+    export HEARTBEAT_PINGS_LOG="$sandbox/heartbeat-pings.log"
+    touch "$HEARTBEAT_PINGS_LOG"
+    cat > "$sandbox/bin/curl" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "${!#}" >> "$HEARTBEAT_PINGS_LOG"
+STUB
+    chmod +x "$sandbox/bin/docker" "$sandbox/bin/date" "$sandbox/bin/curl" "$repo_dir/scripts/backup_databases.sh"
     export PATH="$sandbox/bin:$PATH"
 }
 
@@ -142,6 +151,30 @@ test_skips_while_the_previous_run_holds_the_lock() {
     assert_calls ""
 }
 
+test_a_run_where_everything_succeeded_pings_the_heartbeat() {
+    run_backup || fail_with "expected success"
+    [ "$(cat "$HEARTBEAT_PINGS_LOG")" = "$BACKUP_HEARTBEAT_URL" ] \
+        || fail_with "expected one ping to $BACKUP_HEARTBEAT_URL, got: $(cat "$HEARTBEAT_PINGS_LOG")"
+}
+
+test_a_run_with_a_failure_does_not_ping_the_heartbeat() {
+    export STUB_DUMPS_FAIL=1
+    if run_backup; then
+        fail_with "expected the run to fail"
+    fi
+    [ ! -s "$HEARTBEAT_PINGS_LOG" ] || fail_with "a failed run must not ping the heartbeat"
+}
+
+test_without_a_heartbeat_url_it_still_backs_up_then_fails() {
+    sed -i 's/^BACKUP_HEARTBEAT_URL=.*/BACKUP_HEARTBEAT_URL=/' "$repo_dir/stacks/common.env"
+    if run_backup; then
+        fail_with "expected the run to fail"
+    fi
+    assert_calls "backup_databases.sh
+$BACKUP_CALL"
+    grep -q 'BACKUP_HEARTBEAT_URL is not set' "$sandbox/output" || fail_with "expected the missing URL to be reported"
+}
+
 run_test "it dumps the databases, then backs up the NAS with restic" in_sandbox test_dumps_the_databases_then_backs_up_the_nas
 run_test "it still backs up the files when a database dump fails, and fails the run" in_sandbox test_still_backs_up_the_files_when_the_dumps_fail
 run_test "a failed restic backup fails the run and leaves offsite-last-success alone" in_sandbox test_a_failed_restic_backup_fails_the_run
@@ -149,5 +182,8 @@ run_test "a backup restic saved with unreadable files counts, but fails the run"
 run_test "it forgets, prunes and checks the repository on Sundays" in_sandbox test_maintains_the_repository_on_sundays
 run_test "a failed maintenance fails the run but keeps the backup's success" in_sandbox test_a_failed_maintenance_fails_the_run_after_a_good_backup
 run_test "it skips a run while the previous one still holds the lock" in_sandbox test_skips_while_the_previous_run_holds_the_lock
+run_test "it pings the backup heartbeat after a run where everything succeeded" in_sandbox test_a_run_where_everything_succeeded_pings_the_heartbeat
+run_test "it does not ping the backup heartbeat when something failed" in_sandbox test_a_run_with_a_failure_does_not_ping_the_heartbeat
+run_test "without BACKUP_HEARTBEAT_URL it still backs up, then fails the run" in_sandbox test_without_a_heartbeat_url_it_still_backs_up_then_fails
 
 finish_tests
