@@ -58,6 +58,10 @@ services:
       - --entrypoints.tailnet.asdefault=true
       - --entrypoints.tailnet.http.tls.certresolver=ovh
       - --entrypoints.tailnet.http.tls.domains[0].main=*.${PROXY_DOMAIN}
+      # Traefik gives a request 60 seconds to arrive whole, which cuts a long upload short
+      # (a video to Immich, a large file to Filebrowser).
+      - --entrypoints.tailnet.transport.respondingtimeouts.readtimeout=600s
+      - --entrypoints.tailnet.transport.respondingtimeouts.idletimeout=600s
       - --entrypoints.public.address=:8444
       - --entrypoints.public.http.tls.certresolver=ovh
       - --entrypoints.public.http.tls.domains[0].main=*.${PROXY_DOMAIN}
