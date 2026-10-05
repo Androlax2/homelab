@@ -226,6 +226,34 @@ services:
     devices:
       - /dev/dri:/dev/dri
 
+  # A second media server over the same library as Plex: users, watch history and metadata
+  # are its own.
+  jellyfin:
+    container_name: jellyfin
+    image: jellyfin/jellyfin:10.11.11
+    restart: unless-stopped
+    labels:
+      homelab.backup: "sqlite"
+      glance.name: "Jellyfin"
+      glance.icon: "sh:jellyfin"
+      glance.description: "Media Server"
+      glance.category: "media"
+      glance.url: "https://jellyfin.${PROXY_DOMAIN}"
+    logging: *logging
+    environment:
+      - TZ=${TZ}
+    ports:
+      - "8096:8096"
+    volumes:
+      - ${DOCKERCONFDIR}/jellyfin/config:/config:rw
+      - ${DOCKERCONFDIR}/jellyfin/cache:/cache:rw
+      # Read-only, under the path Plex sees it at: this server never changes the library.
+      - ${DOCKERSTORAGEDIR}/media:/data/media:ro
+    # Intel Quick Sync hardware transcoding, to turn on in Dashboard > Playback > Transcoding.
+    # The image's default user, root, is kept: DSM leaves /dev/dri to root only.
+    devices:
+      - /dev/dri:/dev/dri
+
   notifiarr:
     container_name: notifiarr
     labels:

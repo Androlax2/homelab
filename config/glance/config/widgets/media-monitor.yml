@@ -8,6 +8,10 @@
       url: https://plex.${PROXY_DOMAIN}/web
       check-url: http://${LAN_IP}:32400/identity
       icon: sh:plex
+    - title: Jellyfin
+      url: https://jellyfin.${PROXY_DOMAIN}
+      check-url: http://${LAN_IP}:8096/health
+      icon: sh:jellyfin
     - title: Seerr
       url: https://seerr.${PROXY_DOMAIN}
       check-url: http://${LAN_IP}:5055/api/v1/status

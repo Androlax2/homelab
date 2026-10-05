@@ -11,7 +11,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROUTES_FILE="config/traefik/routes.yml"
 
-PUBLIC_ROUTERS="plex"
+PUBLIC_ROUTERS="plex jellyfin"
 
 # Prints one line per router that breaks the rules above. Reads the file by indentation:
 # `routers:` under a top-level key (http, tcp, udp), router names below it, their keys below those.
