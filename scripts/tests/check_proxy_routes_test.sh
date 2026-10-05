@@ -54,7 +54,7 @@ router() {
     printf '      rule: Host(`%s.example.com`)\\n      service: %s\\n' "$name" "$name"
 }
 
-PUBLIC_REFUSED="on the public entrypoint (allowed only for: plex)"
+PUBLIC_REFUSED="on the public entrypoint (allowed only for: plex jellyfin)"
 
 run_test "it passes private routers on tailnet and plex on public" \
     check_routes "http:\n  routers:\n$(router vault 'entryPoints: [tailnet]')$(router plex 'entryPoints: [public]')" \

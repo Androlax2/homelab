@@ -86,8 +86,8 @@ one wildcard certificate, obtained through OVH's DNS (no port to open for it), o
 
 | Entrypoint | Reachable from | Routes |
 |---|---|---|
-| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `portainer`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `jellyfin` |
-| `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex` |
+| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `portainer`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr` |
+| `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex`, `jellyfin` |
 
 Traefik runs in the network namespace of the `tailscale` container, a tailnet node of its own
 (`jeancloud-proxy`): its port 443 is not the NAS's, so DSM keeps its own and nothing outside the tailnet reaches it.
@@ -97,7 +97,8 @@ the public port is a 404.
 DNS records at OVH: a wildcard `*` points to the tailnet address of `jeancloud-proxy` (100.x, from the Tailscale
 admin console), so a new `tailnet` route needs no record of its own. `plex` is a DynHost record, which wins over
 the wildcard: the `ddns-updater` container keeps it on the home's public address, which the internet provider can
-change.
+change. `jellyfin`, the other public route, is a CNAME to `plex`, so it follows that address without an updater of
+its own.
 
 The dashboard opens every app on its proxy address, and loads covers and thumbnails from there, so it is meant
 for a device on the tailnet. Glance itself is not on it: what it fetches (statuses, API data) stays on the LAN

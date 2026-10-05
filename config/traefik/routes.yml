@@ -67,7 +67,7 @@ http:
       rule: 'Host(`notifiarr.{{ env "PROXY_DOMAIN" }}`)'
       service: notifiarr
     jellyfin:
-      entryPoints: [tailnet]
+      entryPoints: [public]
       rule: 'Host(`jellyfin.{{ env "PROXY_DOMAIN" }}`)'
       service: jellyfin
 
