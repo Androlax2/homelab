@@ -71,7 +71,8 @@ services:
       - TZ=${TZ}
       - PROXY_DOMAIN=${PROXY_DOMAIN}
       - LAN_IP=${LAN_IP}
-      - OPUSLINE_PORT=${OPUSLINE_PORT}
+      # Required: left empty, the route would go to port 80, which is DSM's own page.
+      - OPUSLINE_PORT=${OPUSLINE_PORT:?set it with scripts/edit_env.sh proxy}
       - OVH_ENDPOINT=${OVH_ENDPOINT}
       - OVH_APPLICATION_KEY=${OVH_APPLICATION_KEY}
       - OVH_APPLICATION_SECRET=${OVH_APPLICATION_SECRET}
@@ -79,3 +80,23 @@ services:
     volumes:
       - ../../config/traefik:/etc/traefik/dynamic:ro
       - ${DOCKERCONFDIR}/traefik:/acme:rw
+
+  # Keeps the DNS record of the `plex` route, the only public one, on the home's public address,
+  # which the internet provider can change.
+  ddns-updater:
+    container_name: ddns-updater
+    image: qmcgaw/ddns-updater:v2.10.0
+    labels:
+      glance.name: "DDNS Updater"
+      glance.icon: "sh:ddns-updater"
+      glance.description: "Public address of the plex route"
+      glance.category: "infrastructure"
+      glance.parent: "traefik"
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      TZ: ${TZ}
+      # Its web UI has no use here: no port is published.
+      SERVER_ENABLED: "no"
+      # No /updater/data volume: all a restart loses is the history of past addresses.
+      CONFIG: '{"settings":[{"provider":"ovh","domain":"plex.${PROXY_DOMAIN}","username":"${OVH_DYNHOST_USERNAME:?set it with scripts/edit_env.sh proxy}","password":"${OVH_DYNHOST_PASSWORD:?set it with scripts/edit_env.sh proxy}","ip_version":"ipv4"}]}'

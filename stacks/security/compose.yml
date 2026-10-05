@@ -29,6 +29,14 @@ services:
       - WEB_VAULT_ENABLED=true
       - SENDS_ALLOWED=false
       - EMERGENCY_ACCESS_ALLOWED=false
+      # All required: Vaultwarden refuses to start on an empty SMTP value. Compose refusing
+      # first leaves the running vault as it is.
+      - SMTP_HOST=${VAULTWARDEN_SMTP_HOST:?set it with scripts/edit_env.sh security}
+      - SMTP_PORT=${VAULTWARDEN_SMTP_PORT:?set it with scripts/edit_env.sh security}
+      - SMTP_SECURITY=${VAULTWARDEN_SMTP_SECURITY:?set it with scripts/edit_env.sh security}
+      - SMTP_USERNAME=${VAULTWARDEN_SMTP_USERNAME:?set it with scripts/edit_env.sh security}
+      - SMTP_PASSWORD=${VAULTWARDEN_SMTP_PASSWORD:?set it with scripts/edit_env.sh security}
+      - SMTP_FROM=${VAULTWARDEN_SMTP_FROM:?set it with scripts/edit_env.sh security}
     volumes:
       - ${DOCKERCONFDIR}/vaultwarden:/data:rw
     ports:

@@ -95,15 +95,19 @@ Which entrypoint a request came in on decides what it can reach, not the name it
 the public port is a 404.
 
 DNS records at OVH: `vault` and `opusline` point to the tailnet address of `jeancloud-proxy` (100.x, from the
-Tailscale admin console), `plex` to the home's public address.
+Tailscale admin console). `plex` is a DynHost record: the `ddns-updater` container keeps it on the home's public
+address, which the internet provider can change.
+
+`jeancloud-proxy` belongs to one Tailscale account. A device logged in with another account only reaches it once
+the node is shared with that account (admin console, the machine's Share menu): the address stays the same.
 
 To add a route: a router and a service in [`config/traefik/routes.yml`](config/traefik/routes.yml), and its DNS
 record. A router goes on `public` only if `PUBLIC_ROUTERS` in `scripts/check_proxy_routes.sh` lists it (CI checks
 it).
 
-Apps bound to their URL need it on the NAS too: `VAULTWARDEN_DOMAIN` (`security`), `APP_URL`, `SESSION_DOMAIN`,
-`SANCTUM_STATEFUL_DOMAINS` and `TRUSTED_PROXIES` (`opusline`), and in Plex, Settings > Network > Custom server
-access URLs (`https://plex.<domain>:443`).
+Apps bound to their URL need it on the NAS too: `VAULTWARDEN_DOMAIN` (`security`, and `infrastructure` for the
+dashboard's link), `APP_URL`, `SESSION_DOMAIN`, `SANCTUM_STATEFUL_DOMAINS` and `TRUSTED_PROXIES` (`opusline`), and
+in Plex, Settings > Network > Custom server access URLs (`https://plex.<domain>:443`).
 
 ## Sonarr and Radarr settings
 
@@ -301,5 +305,12 @@ The repo is public: secrets only in the NAS `.env` files, and security reviews a
 - **`git merge --ff-only` fails**: local edits or a force push. `git status`, then `git reset --hard origin/main`
   (`.env` files are gitignored, so they survive).
 - **Glance won't start**: `sudo scripts/compose.sh infrastructure logs glance` names the missing value.
+- **`required variable … is missing a value`**: the key must not be empty, the service would break silently
+  without it. `sudo scripts/edit_env.sh <stack>`.
+- **A route on `tailnet` hangs from one device**: that device is off Tailscale, or logged in with an account the
+  proxy node is not shared with (`tailscale status` must list `jeancloud-proxy`).
+- **A route answers with DSM's page**: its backend port in `stacks/proxy/.env` is wrong.
+- **Vaultwarden sends no mail**: `sudo scripts/compose.sh security logs vaultwarden` shows the mail server's
+  answer; the `VAULTWARDEN_SMTP_*` values are in `stacks/security/.env`.
 - **Deploy says `Backups: …`**: the nightly `backup_nas.sh` task didn't succeed. Open its last output in Task
   Scheduler, or run `sudo bash scripts/backup_nas.sh` to see which step fails.
