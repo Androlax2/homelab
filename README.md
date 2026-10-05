@@ -271,6 +271,10 @@ A ping that can't be sent is logged, and never fails the job.
 
 A new app gets its check in [`config/gatus/config.yaml`](config/gatus/config.yaml).
 
+Glance's Home page shows two things from them: how many of Gatus's checks are up and down, with the failing ones
+named, and the containers using the most CPU and memory according to Beszel. Glance reads Beszel as a read-only
+Beszel user of its own, which `SHARE_ALL_SYSTEMS` lets see the NAS.
+
 ### Monitoring setup
 
 Once, on the NAS:
@@ -290,10 +294,14 @@ Once, on the NAS:
    ```
 3. `sudo scripts/edit_env.sh infrastructure`: the mail server Gatus sends through (`GATUS_SMTP_*`, `GATUS_ALERT_TO`)
    and `OPUSLINE_PORT`. Leave `BESZEL_AGENT_KEY` and `BESZEL_AGENT_TOKEN` empty for now.
-4. Once the stack runs, open `https://beszel.<domain>` and create the admin account. Copy the public key from the
-   Add System dialog and the universal token from Settings > Tokens into `sudo scripts/edit_env.sh infrastructure`
-   (`BESZEL_AGENT_KEY`, `BESZEL_AGENT_TOKEN`): the agent restarts and the NAS appears in the hub. Until then the
-   agent can't connect.
+4. Once the stack runs, open `https://beszel.<domain>` and create the admin account. In the Add System dialog,
+   give the NAS a name and `beszel-agent` as Host / IP, keep the port, and copy the public key and the token it
+   shows into `sudo scripts/edit_env.sh infrastructure` (`BESZEL_AGENT_KEY`, `BESZEL_AGENT_TOKEN`): the agent
+   restarts and the NAS turns green in the hub. Until then the agent can't connect.
+5. The dashboard's user in Beszel: open `https://beszel.<domain>/_/` (PocketBase's admin, same login as the
+   account of step 4), and in the `users` collection create a record with an email, a password, the role
+   `readonly` and Verified turned on. Put both in `sudo scripts/edit_env.sh infrastructure`
+   (`BESZEL_GLANCE_EMAIL`, `BESZEL_GLANCE_PASSWORD`).
 
 ## Scripts
 

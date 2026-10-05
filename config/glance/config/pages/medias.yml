@@ -3,6 +3,7 @@
     - size: small
       widgets:
         $include: ../widgets/media-server-playing.yml
+        $include: ../widgets/jellyfin-stats.yml
         $include: ../widgets/seerr-trending-discovery.yml
         $include: ../widgets/prowlarr-indexers.yml
 

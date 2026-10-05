@@ -1,0 +1,27 @@
+- type: custom-api
+  title: Jellyfin library
+  title-url: https://jellyfin.${PROXY_DOMAIN}
+  cache: 1h
+  url: http://${JELLYFIN_URL}/Items/Counts
+  headers:
+    Authorization: MediaBrowser Token="${JELLYFIN_API_KEY}"
+    Accept: application/json
+  template: |
+    {{ if ne .Response.StatusCode 200 }}
+      <p class="color-negative">Jellyfin: {{ .Response.Status }}</p>
+    {{ else }}
+      <div class="flex justify-between text-center">
+        <div>
+            <div class="color-highlight size-h3">{{ .JSON.Int "MovieCount" | formatNumber }}</div>
+            <div class="size-h6">MOVIES</div>
+        </div>
+        <div>
+            <div class="color-highlight size-h3">{{ .JSON.Int "SeriesCount" | formatNumber }}</div>
+            <div class="size-h6">SERIES</div>
+        </div>
+        <div>
+            <div class="color-highlight size-h3">{{ .JSON.Int "EpisodeCount" | formatNumber }}</div>
+            <div class="size-h6">EPISODES</div>
+        </div>
+      </div>
+    {{ end }}
