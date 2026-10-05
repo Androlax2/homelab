@@ -15,7 +15,8 @@ since the last deployed commit (`.last-deployed`):
 
 A failure leaves the commit unmarked, so the next run retries it and DSM emails the output. A deleted stack is never
 torn down automatically: the run prints the `docker compose -p <stack> down` to run. Every run also checks that the
-nightly database backup still succeeds (see [Backups](#backups)).
+nightly database backup still succeeds (see [Backups](#backups)), and one that ends without an error pings
+healthchecks.io (see [Monitoring](#monitoring)).
 
 ## Layout
 
@@ -38,8 +39,8 @@ The real `stacks/common.env` and `stacks/<stack>/.env` exist only on the NAS (gi
 - Every `${VAR}` used in a compose file is listed in an `.env.example` (CI checks it; the deploy refuses a stack whose
   `.env` lacks a listed key).
 - Images are pinned to exact versions.
-- Only `portainer` and `docker-socket-proxy` may mount the Docker socket, and nothing runs privileged (CI checks it;
-  allowlist in `scripts/check_stacks.sh`).
+- Only `docker-socket-proxy` may mount the Docker socket, and nothing runs privileged (CI checks it; allowlist in
+  `scripts/check_stacks.sh`). What needs Docker reads it through that proxy.
 - Every service with a writable volume has a `homelab.backup` label saying how its data is backed up (CI checks it;
   see [Backups](#backups)).
 
@@ -86,7 +87,7 @@ one wildcard certificate, obtained through OVH's DNS (no port to open for it), o
 
 | Entrypoint | Reachable from | Routes |
 |---|---|---|
-| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `portainer`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr` |
+| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr` |
 | `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex`, `jellyfin` |
 
 Traefik runs in the network namespace of the `tailscale` container, a tailnet node of its own
@@ -164,9 +165,9 @@ Every service with a writable volume has a `homelab.backup` label. CI fails unti
 | Label | What `backup_databases.sh` does | Used by |
 |---|---|---|
 | `postgres` | `pg_dumpall` into `<container>.sql.gz`, kept only if the dump is complete | Immich, Opusline, Prowlarr databases |
-| `sqlite` | copies every SQLite file in the container's `${DOCKERCONFDIR}` folders with SQLite's online backup, as the file's owner, under the same relative path, and checks each copy with `PRAGMA quick_check`; skips an app's own dated copies (`name-YYYY-MM-DD`) | Vaultwarden, Sonarr, Radarr, Tautulli, Seerr, Maintainerr, Jellyfin |
+| `sqlite` | copies every SQLite file in the container's `${DOCKERCONFDIR}` folders with SQLite's online backup, as the file's owner, under the same relative path, and checks each copy with `PRAGMA quick_check`; skips an app's own dated copies (`name-YYYY-MM-DD`) | Vaultwarden, Sonarr, Radarr, Tautulli, Seerr, Maintainerr, Jellyfin, Beszel |
 | `sqlite-unchecked` | like `sqlite`, without the check: for databases only the app's own SQLite build can open fully; the log marks each copy `(not checked)` | Plex |
-| `bolt` | stops the container, archives its `${DOCKERCONFDIR}` folders into `<container>.tar.gz`, starts it again (seconds of downtime) | Portainer, Filebrowser |
+| `bolt` | stops the container, archives its `${DOCKERCONFDIR}` folders into `<container>.tar.gz`, starts it again (seconds of downtime) | Filebrowser |
 | `none` | nothing: plain files restic copies as they are, or data not worth keeping; a comment beside the label says which | everything else with a writable volume |
 
 The job fails if a `sqlite` container holds no SQLite file.
@@ -248,6 +249,52 @@ Every restic command runs through the stack, e.g. `sudo scripts/compose.sh backu
 - Whole NAS lost: on any machine with Docker, run `restic/restic` with the same `.ssh` folder and `RESTIC_PASSWORD`
   (from outside the NAS) and restore `/source` first; this checkout and its `.env` files come back with it.
 
+## Monitoring
+
+Four tools, each for a different question. The first three run in the `infrastructure` stack and are served on the
+`tailnet` entrypoint.
+
+| Tool | Answers | How you find out |
+|---|---|---|
+| Dozzle (`dozzle`) | what is a container logging? | you look |
+| Beszel (`beszel`) | how loaded is the NAS, and because of which container? CPU, memory, disk, with history | its own alerts, set in its interface |
+| Gatus (`gatus`) | is each app answering? | an email after 3 failed checks, a minute apart, and another when it answers again |
+| healthchecks.io | did the deploy and the nightly backup run? | its email when a ping is late |
+
+Dozzle and Beszel read Docker through `docker-socket-proxy`, which only answers reads: no container can be
+started, stopped or entered from either. To restart one, `sudo docker restart <name>` on the NAS.
+
+Gatus checks the apps on their LAN addresses, from the NAS. It sees neither the proxy and its certificate nor the
+public routes (`plex`, `jellyfin`), and when the NAS is off, so is Gatus. That last case is what healthchecks.io is for:
+`deploy.sh` and `backup_nas.sh` ping it when they succeed, and it alerts when the pings stop, whatever the reason.
+A ping that can't be sent is logged, and never fails the job.
+
+A new app gets its check in [`config/gatus/config.yaml`](config/gatus/config.yaml).
+
+### Monitoring setup
+
+Once, on the NAS:
+
+1. healthchecks.io: create two checks and put their ping URLs in `sudo scripts/edit_env.sh common`.
+   - `DEPLOY_HEARTBEAT_URL`: period 5 minutes, grace 15 minutes. The deploy refuses to run without it.
+   - `BACKUP_HEARTBEAT_URL`: a cron schedule, the one of the `backup_nas.sh` task (`30 2 * * *`), with a grace above
+     the time a backup takes. Without it the backup still runs, then fails.
+2. Dozzle's login, a users file only root reads:
+   ```sh
+   image=$(awk '$1 == "image:" && $2 ~ /^amir20\/dozzle:/ { print $2 }' stacks/infrastructure/compose.yml)
+   sudo mkdir -p /volume1/docker/appdata/dozzle
+   read -rs password    # type the password, then Enter
+   echo "$password" | sudo docker run -i --rm "$image" generate <user> --email <email> --name "<name>" \
+     | sudo tee /volume1/docker/appdata/dozzle/users.yml > /dev/null
+   sudo chmod 600 /volume1/docker/appdata/dozzle/users.yml
+   ```
+3. `sudo scripts/edit_env.sh infrastructure`: the mail server Gatus sends through (`GATUS_SMTP_*`, `GATUS_ALERT_TO`)
+   and `OPUSLINE_PORT`. Leave `BESZEL_AGENT_KEY` and `BESZEL_AGENT_TOKEN` empty for now.
+4. Once the stack runs, open `https://beszel.<domain>` and create the admin account. Copy the public key from the
+   Add System dialog and the universal token from Settings > Tokens into `sudo scripts/edit_env.sh infrastructure`
+   (`BESZEL_AGENT_KEY`, `BESZEL_AGENT_TOKEN`): the agent restarts and the NAS appears in the hub. Until then the
+   agent can't connect.
+
 ## Scripts
 
 | Script | Purpose |
@@ -278,6 +325,8 @@ Compose). CI runs them, the three checks and gitleaks on every push and pull req
    docker run --rm --entrypoint /app/glance "$image" password:hash '<your password>'  # GLANCE_PASSWORD_HASH
    ```
 3. `sudo scripts/edit_env.sh common`, then `sudo scripts/edit_env.sh <stack>` for each stack with an `.env.example`.
+   The two heartbeat URLs, Dozzle's users file and the mail settings of Gatus come from
+   [Monitoring setup](#monitoring-setup), steps 1 to 3.
 4. `sudo scripts/deploy.sh` once. It runs every one-time operation: on a rebuilt server whose data already went
    through them, run `sudo scripts/run_operations.sh --mark-all-done` first.
 5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
@@ -286,6 +335,8 @@ Compose). CI runs them, the three checks and gitleaks on every push and pull req
 8. Remote access: see [Remote access](#remote-access). A restored `${DOCKERCONFDIR}/tailscale` keeps the node and
    its address; without it, set a new `TS_AUTHKEY` and point the `vault` and `opusline` DNS records to the new
    address.
+9. Beszel: [Monitoring setup](#monitoring-setup), step 4. A restored `${DOCKERCONFDIR}/beszel` keeps the account,
+   the key and the token.
 
 ## Security
 
@@ -310,6 +361,7 @@ The repo is public: secrets only in the NAS `.env` files, and security reviews a
 ## Troubleshooting
 
 - **Deploy says `.env is missing` / `lacks keys`**: `sudo scripts/edit_env.sh <stack>` (or `common`).
+- **Deploy says `DEPLOY_HEARTBEAT_URL is not set`**: [Monitoring setup](#monitoring-setup), step 1.
 - **Variables empty / "variable is not set"**: Compose was run directly; use `scripts/compose.sh`.
 - **`git merge --ff-only` fails**: local edits or a force push. `git status`, then `git reset --hard origin/main`
   (`.env` files are gitignored, so they survive).

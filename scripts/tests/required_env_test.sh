@@ -3,8 +3,9 @@ set -euo pipefail
 
 # Checks, with the real `docker compose config`, that the stacks refuse an empty value for the
 # keys that would break a service silently (${KEY:?...} in the compose files): an empty
-# OPUSLINE_PORT sends Opusline's route to DSM's page, an empty SMTP value stops Vaultwarden
-# from starting. Nothing is pulled or started.
+# OPUSLINE_PORT sends Opusline's route, or Gatus's check of it, to DSM's page, an empty SMTP
+# value stops Vaultwarden from starting or leaves Gatus unable to send an alert. Nothing is
+# pulled or started.
 #
 # Usage: bash scripts/tests/required_env_test.sh
 
@@ -66,9 +67,14 @@ security VAULTWARDEN_SMTP_SECURITY
 security VAULTWARDEN_SMTP_USERNAME
 security VAULTWARDEN_SMTP_PASSWORD
 security VAULTWARDEN_SMTP_FROM
+infrastructure OPUSLINE_PORT
+infrastructure GATUS_SMTP_HOST
+infrastructure GATUS_SMTP_PORT
+infrastructure GATUS_SMTP_FROM
+infrastructure GATUS_ALERT_TO
 "
 
-for stack in proxy security; do
+for stack in proxy security infrastructure; do
     run_test "the $stack stack is accepted when every key has a value" check_stack_config "$stack" "" accepted
 done
 while read -r stack key; do

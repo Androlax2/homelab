@@ -24,11 +24,15 @@ services:
     volumes:
       - ../../config/glance/config:/app/config:ro
       - ../../config/glance/assets:/app/assets:ro
+      # Not for its content: any folder of a volume gives that volume's disk usage, which the
+      # server-stats widget reads from this path. This one only holds backups.json.
+      - ${DOCKERCONFDIR}/backup-status:/volume1-usage:ro
     ports:
       - "8090:8080"
 
-  # Read-only Docker API for Glance's container list. Whoever holds the Docker
-  # socket is root on the server, so Glance never gets it directly.
+  # Read-only Docker API for Glance's container list, Dozzle's logs and Beszel's container
+  # numbers. Whoever holds the Docker socket is root on the server, so none of them gets it
+  # directly.
   docker-socket-proxy:
     container_name: docker-socket-proxy
     image: tecnativa/docker-socket-proxy:v0.5.0
@@ -36,12 +40,14 @@ services:
     labels:
       glance.name: "Docker Socket Proxy"
       glance.icon: "si:docker"
-      glance.description: "Read-only Docker API for Glance"
+      glance.description: "Read-only Docker API for Glance, Dozzle and Beszel"
       glance.category: "infrastructure"
       glance.parent: "glance"
     logging: *logging
     environment:
       - CONTAINERS=1
+      # System information, which Dozzle asks for.
+      - INFO=1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
@@ -89,3 +95,116 @@ services:
       - TZ=${TZ}
       - PUID=${PUID}
       - PGID=${PGID}
+
+  # Container logs. It reaches Docker through docker-socket-proxy, which only answers reads:
+  # nothing can be started, stopped or opened in a shell from here.
+  dozzle:
+    container_name: dozzle
+    image: amir20/dozzle:v11.2.0
+    restart: unless-stopped
+    labels:
+      # Backup: the users file and the interface's settings, plain files.
+      homelab.backup: "none"
+      glance.name: "Dozzle"
+      glance.icon: "sh:dozzle"
+      glance.description: "Container Logs"
+      glance.category: "infrastructure"
+      glance.url: "https://dozzle.${PROXY_DOMAIN}"
+    logging: *logging
+    environment:
+      - DOZZLE_REMOTE_HOST=tcp://docker-socket-proxy:2375|jeancloud
+      # Its default is no login at all, and logs can hold tokens. The users are in
+      # /data/users.yml (see README, Monitoring).
+      - DOZZLE_AUTH_PROVIDER=simple
+      - DOZZLE_ENABLE_ACTIONS=false
+      - DOZZLE_ENABLE_SHELL=false
+      # Its default is to send usage statistics to dozzle.dev.
+      - DOZZLE_NO_ANALYTICS=true
+    volumes:
+      - ${DOCKERCONFDIR}/dozzle:/data
+    ports:
+      - "8097:8080"
+
+  # CPU, memory, disk and per-container history, with alerts. This is the web interface;
+  # beszel-agent collects the numbers.
+  beszel:
+    container_name: beszel
+    image: henrygd/beszel:0.21.0
+    restart: unless-stopped
+    labels:
+      homelab.backup: "sqlite"
+      glance.name: "Beszel"
+      glance.id: "beszel"
+      glance.icon: "sh:beszel"
+      glance.description: "Server Monitoring"
+      glance.category: "infrastructure"
+      glance.url: "https://beszel.${PROXY_DOMAIN}"
+    logging: *logging
+    environment:
+      - APP_URL=https://beszel.${PROXY_DOMAIN}
+    volumes:
+      - ${DOCKERCONFDIR}/beszel/data:/beszel_data
+    ports:
+      - "8098:8090"
+
+  # Unlike Beszel's own example, neither on the host network nor given the Docker socket: it
+  # reads Docker through docker-socket-proxy and connects to the hub by name. The price is the
+  # NAS-wide network graph, which needs the host network.
+  beszel-agent:
+    container_name: beszel-agent
+    image: henrygd/beszel-agent:0.21.0
+    restart: unless-stopped
+    labels:
+      # Backup: a fingerprint file, which the agent writes again.
+      homelab.backup: "none"
+      glance.name: "Beszel Agent"
+      glance.icon: "sh:beszel"
+      glance.description: "Collects the NAS's numbers for Beszel"
+      glance.category: "infrastructure"
+      glance.parent: "beszel"
+    logging: *logging
+    environment:
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
+      - HUB_URL=http://beszel:8090
+      # Both come from the hub once it runs (see README, Monitoring), and the hub is in this
+      # stack: requiring them here would stop it from ever starting. Until they are set, the
+      # agent can't connect.
+      - KEY=${BESZEL_AGENT_KEY}
+      - TOKEN=${BESZEL_AGENT_TOKEN}
+    volumes:
+      - ${DOCKERCONFDIR}/beszel/agent:/var/lib/beszel-agent
+      # Any folder of a volume gives the agent that volume's disk usage.
+      - ${DOCKERCONFDIR}/beszel/volume1:/extra-filesystems/volume1:ro
+
+  # Checks every app on its LAN address and emails when one stops answering. The checks are
+  # in config/gatus/config.yaml.
+  gatus:
+    container_name: gatus
+    image: twinproduction/gatus:v5.37.0
+    restart: unless-stopped
+    labels:
+      # Backup: uptime history, not worth keeping.
+      homelab.backup: "none"
+      glance.name: "Gatus"
+      glance.icon: "sh:gatus"
+      glance.description: "Uptime Checks"
+      glance.category: "infrastructure"
+      glance.url: "https://gatus.${PROXY_DOMAIN}"
+    logging: *logging
+    # Listed one by one, not through env_file: it only gets what config.yaml reads.
+    environment:
+      - LAN_IP=${LAN_IP}
+      # Required: left empty, the check would go to port 80, which is DSM's own page.
+      - OPUSLINE_PORT=${OPUSLINE_PORT:?set it with scripts/edit_env.sh infrastructure}
+      # Required: with one of these four empty, the checks would run but no alert could leave.
+      - GATUS_SMTP_HOST=${GATUS_SMTP_HOST:?set it with scripts/edit_env.sh infrastructure}
+      - GATUS_SMTP_PORT=${GATUS_SMTP_PORT:?set it with scripts/edit_env.sh infrastructure}
+      - GATUS_SMTP_FROM=${GATUS_SMTP_FROM:?set it with scripts/edit_env.sh infrastructure}
+      - GATUS_ALERT_TO=${GATUS_ALERT_TO:?set it with scripts/edit_env.sh infrastructure}
+      - GATUS_SMTP_USERNAME=${GATUS_SMTP_USERNAME}
+      - GATUS_SMTP_PASSWORD=${GATUS_SMTP_PASSWORD}
+    volumes:
+      - ../../config/gatus:/config:ro
+      - ${DOCKERCONFDIR}/gatus:/data
+    ports:
+      - "8099:8080"

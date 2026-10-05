@@ -12,6 +12,8 @@ set -euo pipefail
 # The file backup runs even when a database dump failed, so everything else still leaves
 # the NAS; the run fails either way, so DSM emails it. BACKUPDIR/offsite-last-success is
 # touched whenever restic saved a snapshot: scripts/check_backups.sh watches it.
+# A run where nothing failed pings BACKUP_HEARTBEAT_URL (healthchecks.io), which alerts
+# when a night goes by without it, the server being off included.
 #
 # Usage: scripts/backup_nas.sh
 # ============================================================
@@ -39,6 +41,7 @@ if ! flock -n 9; then
 fi
 
 backup_root=$(required_env_value "$REPO_DIR/stacks/common.env" BACKUPDIR common)
+backup_heartbeat_url=$(env_value "$REPO_DIR/stacks/common.env" BACKUP_HEARTBEAT_URL)
 
 run_restic() {
     "$REPO_DIR/scripts/compose.sh" backup run --rm -T restic "$@"
@@ -70,8 +73,15 @@ if [ "$(date +%u)" = "$MAINTENANCE_WEEKDAY" ]; then
     run_restic check --read-data-subset="$CHECK_SUBSET" || failed+=("restic check")
 fi
 
+# Reported last, and not with required_env_value up there: a backup that doesn't run for want
+# of a monitoring setting would be worse than the missing setting.
+if [ -z "$backup_heartbeat_url" ]; then
+    failed+=("BACKUP_HEARTBEAT_URL is not set in stacks/common.env (add it with scripts/edit_env.sh common)")
+fi
+
 if [ ${#failed[@]} -gt 0 ]; then
     log "ERROR: failed: $(printf '%s; ' "${failed[@]}")"
     exit 1
 fi
+ping_heartbeat "$backup_heartbeat_url"
 log "NAS backup complete"

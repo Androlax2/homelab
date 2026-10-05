@@ -1,0 +1,9 @@
+# This repo: what is about to deploy (the open pull requests, Renovate's included) and what
+# just did (the last commits on main). No token: the repo is public, and one refresh an hour
+# stays far below GitHub's 60 anonymous requests an hour.
+- type: repository
+  repository: Androlax2/homelab
+  cache: 1h
+  pull-requests-limit: 5
+  issues-limit: 5
+  commits-limit: 3

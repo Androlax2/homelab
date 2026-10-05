@@ -1,0 +1,81 @@
+# What Sonarr and Radarr are downloading. Both widgets share the template below through a YAML anchor.
+# Glance calls the apps on the LAN: it is not on the tailnet. Only the title links use the proxy address.
+- type: custom-api
+  title: Series Downloads
+  title-url: https://sonarr.${PROXY_DOMAIN}/activity/queue
+  cache: 1m
+  url: http://${SONARR_URL}/api/v3/queue
+  headers:
+    X-Api-Key: ${SONARR_API_KEY}
+    Accept: application/json
+  parameters:
+    pageSize: "50"
+    includeSeries: "true"
+    includeEpisode: "true"
+  options:
+    app: Sonarr
+    collapse-after: 5
+  template: &arr-queue-template |
+    {{ if ne .Response.StatusCode 200 }}
+      <p class="color-negative">{{ .Options.StringOr "app" "The app" }}: {{ .Response.Status }}</p>
+    {{ else }}
+      {{ $downloads := .JSON.Array "records" }}
+      {{ if eq (len $downloads) 0 }}
+        <p class="color-subdue">Nothing in the queue</p>
+      {{ else }}
+        <ul class="list list-gap-14 collapsible-container" data-collapse-after="{{ .Options.IntOr "collapse-after" 5 }}">
+          {{ range $downloads }}
+            {{ $size := .Float "size" }}
+            {{ $percent := 0 }}
+            {{ if gt $size 0.0 }}
+              {{ $percent = div (mul (sub $size (.Float "sizeleft")) 100) $size | toInt }}
+            {{ end }}
+            <li>
+              <div class="size-h4 color-highlight text-truncate">
+                {{ if .Exists "series.title" }}
+                  {{ .String "series.title" }}
+                  {{ if .Exists "episode.seasonNumber" }}
+                    · {{ printf "S%02dE%02d" (.Int "episode.seasonNumber") (.Int "episode.episodeNumber") }}
+                  {{ end }}
+                {{ else if .Exists "movie.title" }}
+                  {{ .String "movie.title" }}
+                {{ else }}
+                  {{ .String "title" }}
+                {{ end }}
+              </div>
+              <div class="progress-bar margin-top-5">
+                <div class="progress-value" style="--percent: {{ $percent }}"></div>
+              </div>
+              <ul class="list-horizontal-text size-h6 margin-top-7">
+                <li>{{ $percent }}%</li>
+                <li>{{ .String "status" }}</li>
+                {{ if .Exists "timeleft" }}
+                  <li>{{ .String "timeleft" }} left</li>
+                {{ end }}
+              </ul>
+              {{ if and (.Exists "trackedDownloadStatus") (ne (.String "trackedDownloadStatus") "ok") }}
+                <div class="size-h6 color-negative">
+                  {{ if .Exists "errorMessage" }}{{ .String "errorMessage" }}{{ else }}{{ .String "trackedDownloadStatus" }}{{ end }}
+                </div>
+              {{ end }}
+            </li>
+          {{ end }}
+        </ul>
+      {{ end }}
+    {{ end }}
+
+- type: custom-api
+  title: Movie Downloads
+  title-url: https://radarr.${PROXY_DOMAIN}/activity/queue
+  cache: 1m
+  url: http://${RADARR_URL}/api/v3/queue
+  headers:
+    X-Api-Key: ${RADARR_API_KEY}
+    Accept: application/json
+  parameters:
+    pageSize: "50"
+    includeMovie: "true"
+  options:
+    app: Radarr
+    collapse-after: 5
+  template: *arr-queue-template
