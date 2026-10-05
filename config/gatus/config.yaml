@@ -1,6 +1,6 @@
 # Uptime checks, on the LAN addresses: Gatus is not on the tailnet, so it can't reach the
 # proxy ones. That leaves two things it can't see: the proxy itself, its certificate
-# included, and the public plex route.
+# included, and the public routes (plex, jellyfin).
 #
 # The ${...} values come from the gatus service's environment
 # (stacks/infrastructure/compose.yml).
@@ -59,6 +59,10 @@ endpoints:
     <<: *defaults
     group: media
     url: http://${LAN_IP}:32400/identity
+  - name: Jellyfin
+    <<: *defaults
+    group: media
+    url: http://${LAN_IP}:8096/health
   - name: Seerr
     <<: *defaults
     group: media

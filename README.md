@@ -265,7 +265,7 @@ Dozzle and Beszel read Docker through `docker-socket-proxy`, which only answers 
 started, stopped or entered from either. To restart one, `sudo docker restart <name>` on the NAS.
 
 Gatus checks the apps on their LAN addresses, from the NAS. It sees neither the proxy and its certificate nor the
-public `plex` route, and when the NAS is off, so is Gatus. That last case is what healthchecks.io is for:
+public routes (`plex`, `jellyfin`), and when the NAS is off, so is Gatus. That last case is what healthchecks.io is for:
 `deploy.sh` and `backup_nas.sh` ping it when they succeed, and it alerts when the pings stop, whatever the reason.
 A ping that can't be sent is logged, and never fails the job.
 
