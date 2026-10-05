@@ -79,6 +79,32 @@ and before any container changes (to prepare a folder or a missing `.env` key), 
 updated. It is then recorded in `.operations-done` and never runs again, even if edited. A failing one blocks the
 deploy and is retried. `sudo scripts/run_operations.sh --list` shows what ran.
 
+## Remote access
+
+The `proxy` stack replaces DSM's reverse proxy and DDNS. Traefik serves `<name>.${PROXY_DOMAIN}` over HTTPS with
+one wildcard certificate, obtained through OVH's DNS (no port to open for it), on two entrypoints:
+
+| Entrypoint | Reachable from | Routes |
+|---|---|---|
+| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline` |
+| `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex` |
+
+Traefik runs in the network namespace of the `tailscale` container, a tailnet node of its own
+(`jeancloud-proxy`): its port 443 is not the NAS's, so DSM keeps its own and nothing outside the tailnet reaches it.
+Which entrypoint a request came in on decides what it can reach, not the name it asks for: `vault.<domain>` on
+the public port is a 404.
+
+DNS records at OVH: `vault` and `opusline` point to the tailnet address of `jeancloud-proxy` (100.x, from the
+Tailscale admin console), `plex` to the home's public address.
+
+To add a route: a router and a service in [`config/traefik/routes.yml`](config/traefik/routes.yml), and its DNS
+record. A router goes on `public` only if `PUBLIC_ROUTERS` in `scripts/check_proxy_routes.sh` lists it (CI checks
+it).
+
+Apps bound to their URL need it on the NAS too: `VAULTWARDEN_DOMAIN` (`security`), `APP_URL`, `SESSION_DOMAIN`,
+`SANCTUM_STATEFUL_DOMAINS` and `TRUSTED_PROXIES` (`opusline`), and in Plex, Settings > Network > Custom server
+access URLs (`https://plex.<domain>:443`).
+
 ## Sonarr and Radarr settings
 
 Quality profiles and custom formats come from the [TRaSH Guides](https://trash-guides.info), applied by
@@ -223,11 +249,11 @@ Every restic command runs through the stack, e.g. `sudo scripts/compose.sh backu
 | `backup_databases.sh` | the database dumps, by `homelab.backup` label (run by `backup_nas.sh`) |
 | `backup_status.sh` | hourly: the backup numbers the dashboard shows (see Backups, Dashboard) |
 | `check_backups.sh` | fails once when a backup is over 26 hours old (run by `deploy.sh`) |
-| `check_stacks.sh`, `check_glance_config.sh` | CI checks, runnable locally |
+| `check_stacks.sh`, `check_proxy_routes.sh`, `check_glance_config.sh` | CI checks, runnable locally |
 | `migration_helpers.sh` | helpers used once, for the migration from Portainer |
 
 Tests: `for test_file in scripts/tests/*_test.sh; do bash "$test_file"; done` (needs bash, git, jq, flock, Docker
-Compose). CI runs them, the two checks and gitleaks on every push and pull request.
+Compose). CI runs them, the three checks and gitleaks on every push and pull request.
 
 ## New server
 
@@ -244,6 +270,9 @@ Compose). CI runs them, the two checks and gitleaks on every push and pull reque
 5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
 6. Backups: follow [Backups, Setup](#setup). Until a backup succeeds, the deploy reports it.
 7. Sonarr and Radarr settings: Task Scheduler, `docker start -a configarr` as root every day, email on failure.
+8. Remote access: see [Remote access](#remote-access). A restored `${DOCKERCONFDIR}/tailscale` keeps the node and
+   its address; without it, set a new `TS_AUTHKEY` and point the `vault` and `opusline` DNS records to the new
+   address.
 
 ## Security
 
