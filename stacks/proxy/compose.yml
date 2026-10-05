@@ -1,0 +1,81 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
+services:
+  # A tailnet node of its own. Traefik runs in its network namespace, so port 443 here is not
+  # the NAS's port 443 (DSM's), and only the tailnet can reach it.
+  tailscale:
+    container_name: tailscale
+    image: tailscale/tailscale:v1.102.5
+    hostname: jeancloud-proxy
+    labels:
+      # Backup: the node's identity is a plain file.
+      homelab.backup: "none"
+      glance.name: "Tailscale"
+      glance.icon: "sh:tailscale"
+      glance.description: "Private path to the reverse proxy"
+      glance.category: "infrastructure"
+      glance.parent: "traefik"
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      - TZ=${TZ}
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_HOSTNAME=jeancloud-proxy
+      - TS_STATE_DIR=/var/lib/tailscale
+      # Userspace networking needs no /dev/net/tun, which DSM only has once its tun module is loaded.
+      - TS_USERSPACE=true
+    volumes:
+      - ${DOCKERCONFDIR}/tailscale:/var/lib/tailscale:rw
+    ports:
+      # Traefik's `public` entrypoint: the router forwards WAN 443 here. The `tailnet` one (443)
+      # is never published.
+      - "8444:8444"
+
+  traefik:
+    container_name: traefik
+    image: traefik:v3.7.13
+    labels:
+      # Backup: the certificates are a plain file, and Let's Encrypt issues them again.
+      homelab.backup: "none"
+      glance.name: "Traefik"
+      glance.id: "traefik"
+      glance.icon: "sh:traefik"
+      glance.description: "Reverse Proxy"
+      glance.category: "infrastructure"
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      - tailscale
+    network_mode: service:tailscale
+    command:
+      # `tailnet` is the default entrypoint: a router that names none stays private instead of
+      # landing on every entrypoint, `public` included.
+      - --entrypoints.tailnet.address=:443
+      - --entrypoints.tailnet.asdefault=true
+      - --entrypoints.tailnet.http.tls.certresolver=ovh
+      - --entrypoints.tailnet.http.tls.domains[0].main=*.${PROXY_DOMAIN}
+      - --entrypoints.public.address=:8444
+      - --entrypoints.public.http.tls.certresolver=ovh
+      - --entrypoints.public.http.tls.domains[0].main=*.${PROXY_DOMAIN}
+      - --providers.file.filename=/etc/traefik/dynamic/routes.yml
+      - --certificatesresolvers.ovh.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.ovh.acme.storage=/acme/acme.json
+      # DNS challenge: the certificate needs no port open to the internet, and one wildcard
+      # covers every route without listing their names in the public certificate logs.
+      - --certificatesresolvers.ovh.acme.dnschallenge.provider=ovh
+    environment:
+      - TZ=${TZ}
+      - PROXY_DOMAIN=${PROXY_DOMAIN}
+      - LAN_IP=${LAN_IP}
+      - OPUSLINE_PORT=${OPUSLINE_PORT}
+      - OVH_ENDPOINT=${OVH_ENDPOINT}
+      - OVH_APPLICATION_KEY=${OVH_APPLICATION_KEY}
+      - OVH_APPLICATION_SECRET=${OVH_APPLICATION_SECRET}
+      - OVH_CONSUMER_KEY=${OVH_CONSUMER_KEY}
+    volumes:
+      - ../../config/traefik:/etc/traefik/dynamic:ro
+      - ${DOCKERCONFDIR}/traefik:/acme:rw

@@ -1,0 +1,33 @@
+# Every router names its entrypoint, inline: `tailnet` is reachable from the tailnet only,
+# `public` from the internet. scripts/check_proxy_routes.sh (CI) allows `public` only for the
+# routers it lists.
+#
+# Backends are the ports the stacks already publish on the NAS.
+http:
+  routers:
+    vaultwarden:
+      entryPoints: [tailnet]
+      rule: 'Host(`vault.{{ env "PROXY_DOMAIN" }}`)'
+      service: vaultwarden
+    opusline:
+      entryPoints: [tailnet]
+      rule: 'Host(`opusline.{{ env "PROXY_DOMAIN" }}`)'
+      service: opusline
+    plex:
+      entryPoints: [public]
+      rule: 'Host(`plex.{{ env "PROXY_DOMAIN" }}`)'
+      service: plex
+
+  services:
+    vaultwarden:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8580'
+    opusline:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:{{ env "OPUSLINE_PORT" }}'
+    plex:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:32400'
