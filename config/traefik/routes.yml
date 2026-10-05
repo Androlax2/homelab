@@ -2,7 +2,8 @@
 # `public` from the internet. scripts/check_proxy_routes.sh (CI) allows `public` only for the
 # routers it lists.
 #
-# Backends are the ports the stacks already publish on the NAS.
+# Backends are the ports the stacks already publish on the NAS, or the app's own port for
+# the containers on the host network.
 http:
   routers:
     vaultwarden:
@@ -17,6 +18,54 @@ http:
       entryPoints: [public]
       rule: 'Host(`plex.{{ env "PROXY_DOMAIN" }}`)'
       service: plex
+    glance:
+      entryPoints: [tailnet]
+      rule: 'Host(`glance.{{ env "PROXY_DOMAIN" }}`)'
+      service: glance
+    filebrowser:
+      entryPoints: [tailnet]
+      rule: 'Host(`filebrowser.{{ env "PROXY_DOMAIN" }}`)'
+      service: filebrowser
+    portainer:
+      entryPoints: [tailnet]
+      rule: 'Host(`portainer.{{ env "PROXY_DOMAIN" }}`)'
+      service: portainer
+    immich:
+      entryPoints: [tailnet]
+      rule: 'Host(`immich.{{ env "PROXY_DOMAIN" }}`)'
+      service: immich
+    seerr:
+      entryPoints: [tailnet]
+      rule: 'Host(`seerr.{{ env "PROXY_DOMAIN" }}`)'
+      service: seerr
+    sonarr:
+      entryPoints: [tailnet]
+      rule: 'Host(`sonarr.{{ env "PROXY_DOMAIN" }}`)'
+      service: sonarr
+    radarr:
+      entryPoints: [tailnet]
+      rule: 'Host(`radarr.{{ env "PROXY_DOMAIN" }}`)'
+      service: radarr
+    prowlarr:
+      entryPoints: [tailnet]
+      rule: 'Host(`prowlarr.{{ env "PROXY_DOMAIN" }}`)'
+      service: prowlarr
+    qbittorrent:
+      entryPoints: [tailnet]
+      rule: 'Host(`qbittorrent.{{ env "PROXY_DOMAIN" }}`)'
+      service: qbittorrent
+    tautulli:
+      entryPoints: [tailnet]
+      rule: 'Host(`tautulli.{{ env "PROXY_DOMAIN" }}`)'
+      service: tautulli
+    maintainerr:
+      entryPoints: [tailnet]
+      rule: 'Host(`maintainerr.{{ env "PROXY_DOMAIN" }}`)'
+      service: maintainerr
+    notifiarr:
+      entryPoints: [tailnet]
+      rule: 'Host(`notifiarr.{{ env "PROXY_DOMAIN" }}`)'
+      service: notifiarr
 
   services:
     vaultwarden:
@@ -31,3 +80,58 @@ http:
       loadBalancer:
         servers:
           - url: 'http://{{ env "LAN_IP" }}:32400'
+    glance:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8090'
+    filebrowser:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8095'
+    portainer:
+      loadBalancer:
+        serversTransport: portainer
+        servers:
+          - url: 'https://{{ env "LAN_IP" }}:9443'
+    immich:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:2283'
+    seerr:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:5055'
+    sonarr:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8989'
+    radarr:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:7878'
+    prowlarr:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:9696'
+    qbittorrent:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8080'
+    tautulli:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8181'
+    maintainerr:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:6246'
+    notifiarr:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:5454'
+
+  serversTransports:
+    # Portainer only serves HTTPS, with a certificate it signed itself, which Traefik can't
+    # verify. The connection never leaves the NAS.
+    portainer:
+      insecureSkipVerify: true

@@ -86,7 +86,7 @@ one wildcard certificate, obtained through OVH's DNS (no port to open for it), o
 
 | Entrypoint | Reachable from | Routes |
 |---|---|---|
-| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline` |
+| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `portainer`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr` |
 | `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex` |
 
 Traefik runs in the network namespace of the `tailscale` container, a tailnet node of its own
@@ -94,16 +94,22 @@ Traefik runs in the network namespace of the `tailscale` container, a tailnet no
 Which entrypoint a request came in on decides what it can reach, not the name it asks for: `vault.<domain>` on
 the public port is a 404.
 
-DNS records at OVH: `vault` and `opusline` point to the tailnet address of `jeancloud-proxy` (100.x, from the
-Tailscale admin console). `plex` is a DynHost record: the `ddns-updater` container keeps it on the home's public
-address, which the internet provider can change.
+DNS records at OVH: a wildcard `*` points to the tailnet address of `jeancloud-proxy` (100.x, from the Tailscale
+admin console), so a new `tailnet` route needs no record of its own. `plex` is a DynHost record, which wins over
+the wildcard: the `ddns-updater` container keeps it on the home's public address, which the internet provider can
+change.
+
+The LAN addresses (`http://<LAN_IP>:<port>`) keep working, for a device that is off the tailnet and when the proxy
+is down: the dashboard's links and the apps' links to each other still use them. Through the proxy every request
+reaches an app from a local address, so an app set to skip its login for local addresses (Sonarr, Radarr,
+Prowlarr) asks no password from any device on the tailnet.
 
 `jeancloud-proxy` belongs to one Tailscale account. A device logged in with another account only reaches it once
 the node is shared with that account (admin console, the machine's Share menu): the address stays the same.
 
-To add a route: a router and a service in [`config/traefik/routes.yml`](config/traefik/routes.yml), and its DNS
-record. A router goes on `public` only if `PUBLIC_ROUTERS` in `scripts/check_proxy_routes.sh` lists it (CI checks
-it).
+To add a route: a router and a service in [`config/traefik/routes.yml`](config/traefik/routes.yml), plus a DNS
+record for a public one. A router goes on `public` only if `PUBLIC_ROUTERS` in `scripts/check_proxy_routes.sh`
+lists it (CI checks it).
 
 Apps bound to their URL need it on the NAS too: `VAULTWARDEN_DOMAIN` (`security`, and `infrastructure` for the
 dashboard's link), `APP_URL`, `SESSION_DOMAIN`, `SANCTUM_STATEFUL_DOMAINS` and `TRUSTED_PROXIES` (`opusline`), and
