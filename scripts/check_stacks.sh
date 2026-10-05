@@ -22,6 +22,10 @@ DOCKER_SOCKET_SERVICES="portainer docker-socket-proxy"
 # turns "${DOCKERSTORAGEDIR}:/data" into an invalid ":/data".
 export DOCKERCONFDIR=/check/config DOCKERSTORAGEDIR=/check/storage FILEBROWSER_ROOT=/check/filebrowser
 export BACKUPDIR=/check/backups HOMESDIR=/check/homes
+# Values the compose files require (${KEY:?...}): empty, they would break the service silently.
+export OPUSLINE_PORT=8790 OVH_DYNHOST_USERNAME=check OVH_DYNHOST_PASSWORD=check
+export VAULTWARDEN_SMTP_HOST=smtp.example.com VAULTWARDEN_SMTP_PORT=587 VAULTWARDEN_SMTP_SECURITY=starttls
+export VAULTWARDEN_SMTP_USERNAME=check VAULTWARDEN_SMTP_PASSWORD=check VAULTWARDEN_SMTP_FROM=vault@example.com
 
 # Prints one line per service that breaks the privilege rules above.
 privilege_violations() {

@@ -5,8 +5,10 @@
     - title: Immich
       url: http://${IMMICH_URL}
       icon: sh:immich
+    # Opened on its proxy address, the only one the web vault fully works on, but checked on
+    # the LAN one: Glance is not on the tailnet.
     - title: Vaultwarden
-      url: http://${LAN_IP}:8580
+      url: ${VAULTWARDEN_DOMAIN}
       check-url: http://${LAN_IP}:8580/alive
       icon: sh:vaultwarden
     - title: FileBrowser
