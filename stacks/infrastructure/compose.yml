@@ -16,7 +16,7 @@ services:
       glance.icon: "sh:glance"
       glance.description: "Dashboard"
       glance.category: "infrastructure"
-      glance.url: "http://${LAN_IP}:8090"
+      glance.url: "https://glance.${PROXY_DOMAIN}"
     logging: *logging
     env_file:
       - ../common.env
@@ -75,7 +75,7 @@ services:
       glance.icon: "di:filebrowser"
       glance.description: "File Management"
       glance.category: "infrastructure"
-      glance.url: "http://${LAN_IP}:8095"
+      glance.url: "https://filebrowser.${PROXY_DOMAIN}"
     restart: unless-stopped
     logging: *logging
     ports:

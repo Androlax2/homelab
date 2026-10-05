@@ -99,8 +99,10 @@ admin console), so a new `tailnet` route needs no record of its own. `plex` is a
 the wildcard: the `ddns-updater` container keeps it on the home's public address, which the internet provider can
 change.
 
-The LAN addresses (`http://<LAN_IP>:<port>`) keep working, for a device that is off the tailnet and when the proxy
-is down: the dashboard's links and the apps' links to each other still use them. Through the proxy every request
+The dashboard opens every app on its proxy address, and loads covers and thumbnails from there, so it is meant
+for a device on the tailnet. Glance itself is not on it: what it fetches (statuses, API data) stays on the LAN
+addresses, as do the apps' links to each other. Those addresses (`http://<LAN_IP>:<port>`) keep working, for a
+device that is off the tailnet and when the proxy is down. Through the proxy every request
 reaches an app from a local address, so an app set to skip its login for local addresses (Sonarr, Radarr,
 Prowlarr) asks no password from any device on the tailnet.
 

@@ -1,6 +1,6 @@
 - type: custom-api
   title: Trending Media
-  title-url: http://${LAN_IP}:5055/discover/trending
+  title-url: https://seerr.${PROXY_DOMAIN}/discover/trending
   url: http://${LAN_IP}:5055/api/v1/discover/trending
   cache: 1h
   headers:
@@ -26,7 +26,7 @@
             {{ $mediaTitle := "" }}
             {{ $mediaTypeUpper := "" }}
             {{ if eq $mediaType "movie" }} {{ $mediaTitle = .String "title" }} {{ $mediaTypeUpper = "Movie" }}{{ else }}{{ $mediaTitle = .String "name" }} {{ $mediaTypeUpper = "TV" }}{{ end }}
-            {{ $seerrUrl := concat "http://${LAN_IP}:5055" "/" $mediaType "/" ( .String "id" ) }}
+            {{ $seerrUrl := concat "https://seerr.${PROXY_DOMAIN}" "/" $mediaType "/" ( .String "id" ) }}
             {{ $tmdbUrl := concat "https://www.themoviedb.org" "/" $mediaType "/" ( .String "id" ) }}
             <a href={{ $seerrUrl }} target="_blank">
             <img src={{ concat "https://image.tmdb.org/t/p/w300" (.String "posterPath") }} style="border-radius: 5px; min-width: 5rem; max-width: 5rem;" class="card">

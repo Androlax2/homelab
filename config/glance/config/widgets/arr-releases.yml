@@ -1,7 +1,7 @@
 # Movie (Radarr) and series (Sonarr) releases. Both widgets share the template below through a YAML anchor.
 - type: custom-api
   title: Movie Releases
-  title-url: http://${RADARR_URL}
+  title-url: https://radarr.${PROXY_DOMAIN}
   cache: 30m
   options:
     service: radarr # sonarr, radarr, or lidarr
@@ -14,7 +14,9 @@
     #cover-proxy: "https://proxy.example.com/radarrcover" # optional
     api-base-url: http://${RADARR_URL}
     key: ${RADARR_API_KEY}
-    url: http://${RADARR_URL} # optional
+    # What the browser loads (links, covers), from the proxy address; api-base-url is what
+    # Glance itself calls, on the LAN: it is not on the tailnet.
+    url: https://radarr.${PROXY_DOMAIN}
   template: &arr-releases-template |
     {{ $collapseAfter := .Options.IntOr "collapse-after" 5 }}
     {{ $showGrabbed := .Options.BoolOr "show-grabbed" false }}
@@ -151,7 +153,7 @@
             {{ if eq $service "sonarr" }}
               {{ $series := "" }}
               {{ if eq $coverProxy "" }}
-                {{ $coverBase = printf "%s/api/v3/mediacover" $apiBaseUrl }}
+                {{ $coverBase = printf "%s/api/v3/mediacover" $url }}
                 {{ $coverUrl = printf "%s/%s/poster-500.jpg?apikey=%s" $coverBase (.String "seriesId") $key }}
               {{ else }}
                 {{ $coverBase = $coverProxy }}
@@ -222,7 +224,7 @@
               {{ $movie := "" }}
               {{ $status = .String "status" }}
               {{ if eq $coverProxy "" }}
-                {{ $coverBase = printf "%s/api/v3/mediacover" $apiBaseUrl }}
+                {{ $coverBase = printf "%s/api/v3/mediacover" $url }}
               {{ else }}
                 {{ $coverBase = $coverProxy }}
               {{ end }}
@@ -293,7 +295,7 @@
               {{ $album := "" }}
               {{ $albumId := "" }}
               {{ if eq $coverProxy "" }}
-                {{ $coverBase = printf "%s/api/v1/mediacover" $apiBaseUrl }}
+                {{ $coverBase = printf "%s/api/v1/mediacover" $url }}
               {{ else }}
                 {{ $coverBase = $coverProxy }}
               {{ end }}
@@ -450,7 +452,7 @@
 
 - type: custom-api
   title: Series Releases
-  title-url: http://${SONARR_URL}
+  title-url: https://sonarr.${PROXY_DOMAIN}
   cache: 30m
   options:
     service: sonarr # sonarr, radarr, or lidarr
@@ -461,5 +463,5 @@
     interval: 20 # optional, days
     api-base-url: http://${SONARR_URL}
     key: ${SONARR_API_KEY}
-    url: http://${SONARR_URL} # optional
+    url: https://sonarr.${PROXY_DOMAIN}
   template: *arr-releases-template

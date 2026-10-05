@@ -1,33 +1,38 @@
+# Each app is opened on its proxy address but checked on its LAN one: Glance is not on the
+# tailnet, so it can't reach the proxy addresses itself.
 - type: monitor
   title: Media Services
   cache: 1m
   sites:
     - title: Plex
-      url: http://${LAN_IP}:32400/web
+      url: https://plex.${PROXY_DOMAIN}/web
       check-url: http://${LAN_IP}:32400/identity
       icon: sh:plex
     - title: Seerr
-      url: http://${LAN_IP}:5055
+      url: https://seerr.${PROXY_DOMAIN}
       check-url: http://${LAN_IP}:5055/api/v1/status
       icon: sh:overseerr
     - title: Radarr
-      url: http://${RADARR_URL}
+      url: https://radarr.${PROXY_DOMAIN}
       check-url: http://${RADARR_URL}/ping
       icon: sh:radarr
     - title: Sonarr
-      url: http://${SONARR_URL}
+      url: https://sonarr.${PROXY_DOMAIN}
       check-url: http://${SONARR_URL}/ping
       icon: sh:sonarr
     - title: Prowlarr
-      url: http://${PROWLARR_URL}
+      url: https://prowlarr.${PROXY_DOMAIN}
       check-url: http://${PROWLARR_URL}/ping
       icon: sh:prowlarr
     - title: Tautulli
-      url: http://${TAUTULLI_URL}
+      url: https://tautulli.${PROXY_DOMAIN}
+      check-url: http://${TAUTULLI_URL}
       icon: sh:tautulli
     - title: qBittorrent
-      url: http://${LAN_IP}:8080
+      url: https://qbittorrent.${PROXY_DOMAIN}
+      check-url: http://${LAN_IP}:8080
       icon: sh:qbittorrent
     - title: Maintainerr
-      url: http://${LAN_IP}:6246
+      url: https://maintainerr.${PROXY_DOMAIN}
+      check-url: http://${LAN_IP}:6246
       icon: sh:maintainerr
