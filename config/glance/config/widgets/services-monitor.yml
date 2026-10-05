@@ -1,19 +1,22 @@
+# Each app is opened on its proxy address but checked on its LAN one: Glance is not on the
+# tailnet, so it can't reach the proxy addresses itself.
 - type: monitor
   title: Services
   cache: 1m
   sites:
     - title: Immich
-      url: http://${IMMICH_URL}
+      url: https://immich.${PROXY_DOMAIN}
+      check-url: http://${IMMICH_URL}
       icon: sh:immich
-    # Opened on its proxy address, the only one the web vault fully works on, but checked on
-    # the LAN one: Glance is not on the tailnet.
     - title: Vaultwarden
       url: ${VAULTWARDEN_DOMAIN}
       check-url: http://${LAN_IP}:8580/alive
       icon: sh:vaultwarden
     - title: FileBrowser
-      url: http://${LAN_IP}:8095
+      url: https://filebrowser.${PROXY_DOMAIN}
+      check-url: http://${LAN_IP}:8095
       icon: sh:filebrowser
     - title: Notifiarr
-      url: http://${LAN_IP}:5454
+      url: https://notifiarr.${PROXY_DOMAIN}
+      check-url: http://${LAN_IP}:5454
       icon: sh:notifiarr

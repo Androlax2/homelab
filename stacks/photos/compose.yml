@@ -17,7 +17,7 @@ services:
       glance.description: "Photo Backup & Sharing"
       glance.category: "photos"
       glance.id: "immich"
-      glance.url: "http://${LAN_IP}:2283"
+      glance.url: "https://immich.${PROXY_DOMAIN}"
     volumes:
       - ${DOCKERSTORAGEDIR}/library:/data
     logging: *logging

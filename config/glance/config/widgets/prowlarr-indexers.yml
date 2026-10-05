@@ -2,7 +2,7 @@
   title: Prowlarr Indexers
   cache: 1h
   options:
-    url: "http://${PROWLARR_URL}"
+    url: "https://prowlarr.${PROXY_DOMAIN}"
     base-url: http://${PROWLARR_URL}
     api-key: ${PROWLARR_API_KEY}
     collapse-after: 5

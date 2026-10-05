@@ -5,6 +5,9 @@
   options:
     media-server: "tautulli"
     base-url: http://${TAUTULLI_URL}
+    # Thumbnails are loaded by the browser, not by Glance: from the proxy address, since a
+    # dashboard opened over HTTPS can't show images from an HTTP one.
+    thumbnail-base-url: https://tautulli.${PROXY_DOMAIN}
     api-key: ${TAUTULLI_API_KEY}
     history-length: "10"
     media-types: "movie,episode"
@@ -14,6 +17,7 @@
   template: |
     {{ $mediaServer := .Options.StringOr "media-server" "" }}
     {{ $baseURL := .Options.StringOr "base-url" "" }}
+    {{ $thumbnailBaseURL := .Options.StringOr "thumbnail-base-url" $baseURL }}
     {{ $apiKey := .Options.StringOr "api-key" "" }}
     {{ $userName := .Options.StringOr "user-name" "" }}
 
@@ -178,7 +182,7 @@
               {{ if or $isShows $isMusic}}
                 {{ $thumbID = $item.String "parentThumb" }}
               {{ end }}
-              {{ $thumbURL = concat $baseURL $thumbID "?X-Plex-Token=" $apiKey }}
+              {{ $thumbURL = concat $thumbnailBaseURL $thumbID "?X-Plex-Token=" $apiKey }}
 
               {{ $time := $item.String "viewedAt" }}
               {{ if $timeAbsolute }}
@@ -205,7 +209,7 @@
               {{ end }}
 
               {{ $thumbID := $item.String "thumb" }}
-              {{ $thumbURL = concat $baseURL "/api/v2?apikey=" $apiKey "&cmd=pms_image_proxy&img=" $thumbID }}
+              {{ $thumbURL = concat $thumbnailBaseURL "/api/v2?apikey=" $apiKey "&cmd=pms_image_proxy&img=" $thumbID }}
 
               {{ $time := $item.String "date" }}
               {{ if $timeAbsolute }}
@@ -234,7 +238,7 @@
               {{ if $isShows }}
                 {{ $thumbID  = $item.String "SeasonId" }}
               {{ end }}
-              {{ $thumbURL = concat $baseURL "/Items/" $thumbID "/Images/Primary?api_key=" $apiKey }}
+              {{ $thumbURL = concat $thumbnailBaseURL "/Items/" $thumbID "/Images/Primary?api_key=" $apiKey }}
 
               {{ $time := $item.String "UserData.LastPlayedDate" }}
               {{ if $timeAbsolute }}
