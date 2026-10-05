@@ -86,7 +86,7 @@ one wildcard certificate, obtained through OVH's DNS (no port to open for it), o
 
 | Entrypoint | Reachable from | Routes |
 |---|---|---|
-| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `portainer`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr` |
+| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `portainer`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `jellyfin` |
 | `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex` |
 
 Traefik runs in the network namespace of the `tailscale` container, a tailnet node of its own
@@ -163,7 +163,7 @@ Every service with a writable volume has a `homelab.backup` label. CI fails unti
 | Label | What `backup_databases.sh` does | Used by |
 |---|---|---|
 | `postgres` | `pg_dumpall` into `<container>.sql.gz`, kept only if the dump is complete | Immich, Opusline, Prowlarr databases |
-| `sqlite` | copies every SQLite file in the container's `${DOCKERCONFDIR}` folders with SQLite's online backup, as the file's owner, under the same relative path, and checks each copy with `PRAGMA quick_check`; skips an app's own dated copies (`name-YYYY-MM-DD`) | Vaultwarden, Sonarr, Radarr, Tautulli, Seerr, Maintainerr |
+| `sqlite` | copies every SQLite file in the container's `${DOCKERCONFDIR}` folders with SQLite's online backup, as the file's owner, under the same relative path, and checks each copy with `PRAGMA quick_check`; skips an app's own dated copies (`name-YYYY-MM-DD`) | Vaultwarden, Sonarr, Radarr, Tautulli, Seerr, Maintainerr, Jellyfin |
 | `sqlite-unchecked` | like `sqlite`, without the check: for databases only the app's own SQLite build can open fully; the log marks each copy `(not checked)` | Plex |
 | `bolt` | stops the container, archives its `${DOCKERCONFDIR}` folders into `<container>.tar.gz`, starts it again (seconds of downtime) | Portainer, Filebrowser |
 | `none` | nothing: plain files restic copies as they are, or data not worth keeping; a comment beside the label says which | everything else with a writable volume |

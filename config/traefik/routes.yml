@@ -66,6 +66,10 @@ http:
       entryPoints: [tailnet]
       rule: 'Host(`notifiarr.{{ env "PROXY_DOMAIN" }}`)'
       service: notifiarr
+    jellyfin:
+      entryPoints: [tailnet]
+      rule: 'Host(`jellyfin.{{ env "PROXY_DOMAIN" }}`)'
+      service: jellyfin
 
   services:
     vaultwarden:
@@ -129,6 +133,10 @@ http:
       loadBalancer:
         servers:
           - url: 'http://{{ env "LAN_IP" }}:5454'
+    jellyfin:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8096'
 
   serversTransports:
     # Portainer only serves HTTPS, with a certificate it signed itself, which Traefik can't
