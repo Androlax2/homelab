@@ -83,7 +83,7 @@ deploy and is retried. `sudo scripts/run_operations.sh --list` shows what ran.
 ## Remote access
 
 The `proxy` stack replaces DSM's reverse proxy and DDNS. Traefik serves `<name>.${PROXY_DOMAIN}` over HTTPS with
-one wildcard certificate, obtained through OVH's DNS (no port to open for it), on two entrypoints:
+one wildcard certificate, obtained through Cloudflare's DNS (no port to open for it), on two entrypoints:
 
 | Entrypoint | Reachable from | Routes |
 |---|---|---|
@@ -95,9 +95,10 @@ Traefik runs in the network namespace of the `tailscale` container, a tailnet no
 Which entrypoint a request came in on decides what it can reach, not the name it asks for: `vault.<domain>` on
 the public port is a 404.
 
-DNS records at OVH: a wildcard `*` points to the tailnet address of `jeancloud-proxy` (100.x, from the Tailscale
-admin console), so a new `tailnet` route needs no record of its own. `plex` is a DynHost record, which wins over
-the wildcard: the `ddns-updater` container keeps it on the home's public address, which the internet provider can
+DNS records at Cloudflare, all "DNS only" (Traefik serves the TLS itself, and Plex doesn't work through
+Cloudflare's proxy): a wildcard `*` points to the tailnet address of `jeancloud-proxy` (100.x, from the Tailscale
+admin console), so a new `tailnet` route needs no record of its own. `plex` is an `A` record, which wins over the
+wildcard: the `ddns-updater` container keeps it on the home's public address, which the internet provider can
 change. `jellyfin`, the other public route, is a CNAME to `plex`, so it follows that address without an updater of
 its own.
 
