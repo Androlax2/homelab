@@ -56,31 +56,29 @@ services:
       # landing on every entrypoint, `public` included.
       - --entrypoints.tailnet.address=:443
       - --entrypoints.tailnet.asdefault=true
-      - --entrypoints.tailnet.http.tls.certresolver=ovh
+      - --entrypoints.tailnet.http.tls.certresolver=letsencrypt
       - --entrypoints.tailnet.http.tls.domains[0].main=*.${PROXY_DOMAIN}
       # Traefik gives a request 60 seconds to arrive whole, which cuts a long upload short
       # (a video to Immich, a large file to Filebrowser).
       - --entrypoints.tailnet.transport.respondingtimeouts.readtimeout=600s
       - --entrypoints.tailnet.transport.respondingtimeouts.idletimeout=600s
       - --entrypoints.public.address=:8444
-      - --entrypoints.public.http.tls.certresolver=ovh
+      - --entrypoints.public.http.tls.certresolver=letsencrypt
       - --entrypoints.public.http.tls.domains[0].main=*.${PROXY_DOMAIN}
       - --providers.file.filename=/etc/traefik/dynamic/routes.yml
-      - --certificatesresolvers.ovh.acme.email=${ACME_EMAIL}
-      - --certificatesresolvers.ovh.acme.storage=/acme/acme.json
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
       # DNS challenge: the certificate needs no port open to the internet, and one wildcard
       # covers every route without listing their names in the public certificate logs.
-      - --certificatesresolvers.ovh.acme.dnschallenge.provider=ovh
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
     environment:
       - TZ=${TZ}
       - PROXY_DOMAIN=${PROXY_DOMAIN}
       - LAN_IP=${LAN_IP}
       # Required: left empty, the route would go to port 80, which is DSM's own page.
       - OPUSLINE_PORT=${OPUSLINE_PORT:?set it with scripts/edit_env.sh proxy}
-      - OVH_ENDPOINT=${OVH_ENDPOINT}
-      - OVH_APPLICATION_KEY=${OVH_APPLICATION_KEY}
-      - OVH_APPLICATION_SECRET=${OVH_APPLICATION_SECRET}
-      - OVH_CONSUMER_KEY=${OVH_CONSUMER_KEY}
+      # Required: left empty, the challenge fails and Traefik serves its own self-signed certificate.
+      - CF_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN:?set it with scripts/edit_env.sh proxy}
     volumes:
       - ../../config/traefik:/etc/traefik/dynamic:ro
       - ${DOCKERCONFDIR}/traefik:/acme:rw
@@ -103,4 +101,6 @@ services:
       # Its web UI has no use here: no port is published.
       SERVER_ENABLED: "no"
       # No /updater/data volume: all a restart loses is the history of past addresses.
-      CONFIG: '{"settings":[{"provider":"ovh","domain":"plex.${PROXY_DOMAIN}","username":"${OVH_DYNHOST_USERNAME:?set it with scripts/edit_env.sh proxy}","password":"${OVH_DYNHOST_PASSWORD:?set it with scripts/edit_env.sh proxy}","ip_version":"ipv4"}]}'
+      # proxied false: Traefik serves the TLS itself, and Plex would not work through Cloudflare's proxy.
+      # ttl 1 is Cloudflare's "automatic".
+      CONFIG: '{"settings":[{"provider":"cloudflare","zone_identifier":"${CLOUDFLARE_ZONE_ID:?set it with scripts/edit_env.sh proxy}","domain":"plex.${PROXY_DOMAIN}","ttl":1,"token":"${CLOUDFLARE_DNS_API_TOKEN:?set it with scripts/edit_env.sh proxy}","ip_version":"ipv4","proxied":false}]}'
