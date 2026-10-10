@@ -40,6 +40,11 @@ endpoints:
     group: infrastructure
     url: http://${LAN_IP}:8095
 
+  - name: AdGuard Home
+    <<: *defaults
+    group: infrastructure
+    url: http://${LAN_IP}:8053/login.html
+
   - name: Vaultwarden
     <<: *defaults
     group: security

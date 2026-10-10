@@ -82,6 +82,10 @@ http:
       entryPoints: [tailnet]
       rule: 'Host(`matrix.{{ env "PROXY_DOMAIN" }}`)'
       service: matrix
+    adguard:
+      entryPoints: [tailnet]
+      rule: 'Host(`adguard.{{ env "PROXY_DOMAIN" }}`)'
+      service: adguard
 
   services:
     vaultwarden:
@@ -160,3 +164,7 @@ http:
       loadBalancer:
         servers:
           - url: 'http://{{ env "LAN_IP" }}:8008'
+    adguard:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8053'
