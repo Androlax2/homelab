@@ -55,6 +55,11 @@ endpoints:
     group: opusline
     url: http://${LAN_IP}:${OPUSLINE_PORT}
 
+  - name: Matrix
+    <<: *defaults
+    group: matrix
+    url: http://${LAN_IP}:8008/health
+
   - name: Plex
     <<: *defaults
     group: media

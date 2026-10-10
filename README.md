@@ -87,7 +87,7 @@ one wildcard certificate, obtained through Cloudflare's DNS (no port to open for
 
 | Entrypoint | Reachable from | Routes |
 |---|---|---|
-| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr` |
+| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `matrix` |
 | `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex`, `jellyfin` |
 
 Traefik runs in the network namespace of the `tailscale` container, a tailnet node of its own
@@ -119,6 +119,28 @@ lists it (CI checks it).
 Apps bound to their URL need it on the NAS too: `VAULTWARDEN_DOMAIN` (`security`, and `infrastructure` for the
 dashboard's link), `APP_URL`, `SESSION_DOMAIN`, `SANCTUM_STATEFUL_DOMAINS` and `TRUSTED_PROXIES` (`opusline`), and
 in Plex, Settings > Network > Custom server access URLs (`https://plex.<domain>:443`).
+
+## Chat
+
+The `matrix` stack is a private [Matrix](https://matrix.org) homeserver (Synapse and its Postgres), for
+end-to-end encrypted chat between a few people. It is on the `tailnet` entrypoint only and does not federate:
+it talks to no other homeserver, and none can talk to it. Nothing is hosted for the apps: install Element X
+(phone) or Element (desktop) and give it `https://matrix.<domain>` as the server.
+
+- Accounts are created on the NAS, nobody can sign up from an app:
+  ```sh
+  sudo docker exec -it synapse register_new_matrix_user \
+    -c /config/homeserver.yaml -c /data/local.yaml http://localhost:8008
+  ```
+- A friend joins like any other device: Tailscale on their devices, and `jeancloud-proxy` shared with their
+  account (see [Remote access](#remote-access)).
+- Each person must save the recovery key their app offers. Messages are encrypted on the devices: the server's
+  backup holds them, but can't read them, so losing every device without that key loses the history.
+- A phone is notified through its app vendor's push gateway, which the NAS calls: it is told that a message
+  arrived, never what it says.
+- The server's name is `matrix.<domain>` and is part of every user ID (`@name:matrix.<domain>`): it can never
+  change. It is in `${DOCKERCONFDIR}/matrix/synapse/local.yaml`, with the database password, written by the
+  stack's first deploy; the rest of Synapse's settings is [`config/synapse/homeserver.yaml`](config/synapse/homeserver.yaml).
 
 ## Sonarr and Radarr settings
 
@@ -165,7 +187,7 @@ Every service with a writable volume has a `homelab.backup` label. CI fails unti
 
 | Label | What `backup_databases.sh` does | Used by |
 |---|---|---|
-| `postgres` | `pg_dumpall` into `<container>.sql.gz`, kept only if the dump is complete | Immich, Opusline, Prowlarr databases |
+| `postgres` | `pg_dumpall` into `<container>.sql.gz`, kept only if the dump is complete | Immich, Opusline, Prowlarr, Matrix databases |
 | `sqlite` | copies every SQLite file in the container's `${DOCKERCONFDIR}` folders with SQLite's online backup, as the file's owner, under the same relative path, and checks each copy with `PRAGMA quick_check`; skips an app's own dated copies (`name-YYYY-MM-DD`) | Vaultwarden, Sonarr, Radarr, Tautulli, Seerr, Maintainerr, Jellyfin, Beszel |
 | `sqlite-unchecked` | like `sqlite`, without the check: for databases only the app's own SQLite build can open fully; the log marks each copy `(not checked)` | Plex |
 | `bolt` | stops the container, archives its `${DOCKERCONFDIR}` folders into `<container>.tar.gz`, starts it again (seconds of downtime) | Filebrowser |

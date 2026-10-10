@@ -1,0 +1,77 @@
+# A private Matrix homeserver: end-to-end encrypted chat, for the tailnet only and without
+# federation. The apps are the usual Matrix ones (Element X, Element), pointed at
+# https://matrix.${PROXY_DOMAIN}.
+#
+# Synapse reads two files: config/synapse/homeserver.yaml (this repo) and local.yaml, written
+# once on the server with what can't be committed (the domain, the database password).
+name: matrix
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
+services:
+  synapse:
+    container_name: synapse
+    image: ghcr.io/element-hq/synapse:v1.162.0
+    labels:
+      # Backup: media, the signing key and local.yaml are plain files. Messages are in synapse-db.
+      homelab.backup: "none"
+      glance.name: "Matrix"
+      glance.id: "synapse"
+      glance.icon: "sh:matrix"
+      glance.description: "Private chat"
+      glance.category: "productivity"
+      # The proxy URL, not http://${LAN_IP}:8008: that address only answers the apps' API calls.
+      glance.url: "https://matrix.${PROXY_DOMAIN}"
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      synapse-db:
+        condition: service_healthy
+    # The later file wins: local.yaml adds server_name, public_baseurl and the database.
+    command: ["run", "--config-path=/config/homeserver.yaml", "--config-path=/data/local.yaml"]
+    environment:
+      - TZ=${TZ}
+      # The user Synapse runs as, and the owner of what it writes in /data.
+      - UID=${PUID}
+      - GID=${PGID}
+    volumes:
+      - ../../config/synapse:/config:ro
+      - ${DOCKERCONFDIR}/matrix/synapse:/data:rw
+    ports:
+      - "8008:8008"
+
+  synapse-db:
+    container_name: synapse-db
+    image: postgres:18.6-alpine
+    labels:
+      homelab.backup: "postgres"
+      glance.name: "Matrix Database"
+      glance.icon: "sh:postgresql"
+      glance.description: "Postgres"
+      glance.category: "productivity"
+      glance.parent: "synapse"
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      TZ: ${TZ}
+      POSTGRES_DB: synapse
+      POSTGRES_USER: synapse
+      # Required: left empty, Postgres refuses to create the database. The same password is in
+      # local.yaml, which is where Synapse reads it.
+      POSTGRES_PASSWORD: ${SYNAPSE_DB_PASSWORD:?set it with scripts/edit_env.sh matrix}
+      # Synapse refuses a database whose collation is not C.
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --lc-collate=C --lc-ctype=C --data-checksums
+    volumes:
+      # /var/lib/postgresql, not .../data — Postgres 18 layout.
+      - ${DOCKERCONFDIR}/matrix/postgres:/var/lib/postgresql
+    # No ports: DSM already owns 5432 for its own Postgres, and nothing outside
+    # the compose network needs this one.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
