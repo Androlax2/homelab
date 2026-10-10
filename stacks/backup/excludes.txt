@@ -8,9 +8,11 @@
 /source/appdata/opusline/postgres
 /source/appdata/prowlarr-postgres
 /source/appdata/matrix/postgres
+/source/appdata/paperless/postgres
 
 # Queue and cache only
 /source/appdata/opusline/redis
+/source/appdata/paperless/redis
 
 # AdGuard Home's query log and statistics, and the filter lists it downloads again
 /source/appdata/adguardhome/work

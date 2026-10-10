@@ -5,7 +5,7 @@ set -euo pipefail
 # Nightly backup of the NAS's own data to the Hetzner Storage Box, run as root by DSM
 # Task Scheduler:
 #   1. scripts/backup_databases.sh dumps every database into BACKUPDIR
-#   2. restic (stacks/backup) backs up /source: photos, app data, the database dumps, the
+#   2. restic (stacks/backup) backs up /source: photos, app data, Opusline's files, the database dumps, the
 #      home folders and this checkout, minus stacks/backup/excludes.txt
 #   3. on Sundays, restic forgets old snapshots (KEEP_* below), prunes, and reads back a
 #      CHECK_SUBSET sample of the data

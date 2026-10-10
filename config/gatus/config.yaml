@@ -60,6 +60,11 @@ endpoints:
     group: opusline
     url: http://${LAN_IP}:${OPUSLINE_PORT}
 
+  - name: Paperless
+    <<: *defaults
+    group: paperless
+    url: http://${LAN_IP}:8010/accounts/login/
+
   - name: Matrix
     <<: *defaults
     group: matrix
