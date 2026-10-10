@@ -143,9 +143,11 @@ and kept in `${DOCKERCONFDIR}/adguardhome/conf`, not in this repo: AdGuard Home 
 
 ### DNS setup
 
-Once, after the first deploy: open `http://<LAN_IP>:8054`, keep the wizard's ports (interface on 80, DNS on
-53, all interfaces) and create the login. The wizard then stops listening, and the interface answers on
-`https://adguard.<domain>`. Until then, Gatus reports AdGuard Home as down.
+A restored `${DOCKERCONFDIR}/adguardhome/conf` keeps the settings and the login. Without it, AdGuard Home
+starts on its setup wizard, on port 3000, which the NAS does not publish: add `- "8054:3000"` to the `tailscale`
+service's ports in [`stacks/proxy/compose.yml`](stacks/proxy/compose.yml) for the time it takes, open
+`http://<LAN_IP>:8054`, keep the wizard's ports (interface on 80, DNS on 53, all interfaces) and create the
+login. Until then, Gatus reports AdGuard Home as down.
 
 ## Chat
 

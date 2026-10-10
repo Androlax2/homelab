@@ -40,8 +40,6 @@ services:
       - "53:53/udp"
       # AdGuard Home's interface: what the proxy route and Gatus reach.
       - "8053:80"
-      # AdGuard Home's setup wizard, which only listens until it has been completed once.
-      - "8054:3000"
 
   traefik:
     container_name: traefik
