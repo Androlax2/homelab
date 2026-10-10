@@ -139,14 +139,20 @@ devices in Settings > Client settings to tell them apart in the query log. When 
 a tailnet device resolves nothing until Tailscale is turned off on it, or the nameserver removed in the admin
 console.
 
+Glance's Home page shows its numbers for the last 24 hours (queries, share blocked, most blocked names),
+read with AdGuard Home's own login: `ADGUARD_USERNAME` and `ADGUARD_PASSWORD` in
+`sudo scripts/edit_env.sh infrastructure`.
+
 Its settings (filter lists, allowed names, the login) are edited in its interface, `https://adguard.<domain>`,
 and kept in `${DOCKERCONFDIR}/adguardhome/conf`, not in this repo: AdGuard Home rewrites that file.
 
 ### DNS setup
 
-Once, after the first deploy: open `http://<LAN_IP>:8054`, keep the wizard's ports (interface on 80, DNS on
-53, all interfaces) and create the login. The wizard then stops listening, and the interface answers on
-`https://adguard.<domain>`. Until then, Gatus reports AdGuard Home as down.
+A restored `${DOCKERCONFDIR}/adguardhome/conf` keeps the settings and the login. Without it, AdGuard Home
+starts on its setup wizard, on port 3000, which the NAS does not publish: add `- "8054:3000"` to the `tailscale`
+service's ports in [`stacks/proxy/compose.yml`](stacks/proxy/compose.yml) for the time it takes, open
+`http://<LAN_IP>:8054`, keep the wizard's ports (interface on 80, DNS on 53, all interfaces) and create the
+login. Until then, Gatus reports AdGuard Home as down.
 
 ## Chat
 
