@@ -40,8 +40,6 @@ services:
       - "53:53/udp"
       # AdGuard Home's interface: what the proxy route and Gatus reach.
       - "8053:80"
-      # AdGuard Home's setup wizard, which only listens until it has been completed once.
-      - "8054:3000"
 
   traefik:
     container_name: traefik
@@ -104,7 +102,6 @@ services:
       glance.icon: "sh:adguard-home"
       glance.description: "DNS ad blocking"
       glance.category: "infrastructure"
-      glance.parent: "traefik"
       glance.url: "https://adguard.${PROXY_DOMAIN}"
     restart: unless-stopped
     logging: *logging
