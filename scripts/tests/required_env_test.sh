@@ -5,7 +5,8 @@ set -euo pipefail
 # keys that would break a service silently (${KEY:?...} in the compose files): an empty
 # OPUSLINE_PORT sends Opusline's route, or Gatus's check of it, to DSM's page, an empty SMTP
 # value stops Vaultwarden from starting or leaves Gatus unable to send an alert, an empty
-# SYNAPSE_DB_PASSWORD stops Postgres from creating Synapse's database. Nothing is pulled or started.
+# SYNAPSE_DB_PASSWORD stops Postgres from creating Synapse's database, an empty Paperless key
+# leaves it with a secret key everyone knows, no database or no inbox. Nothing is pulled or started.
 #
 # Usage: bash scripts/tests/required_env_test.sh
 
@@ -73,9 +74,12 @@ infrastructure GATUS_SMTP_PORT
 infrastructure GATUS_SMTP_FROM
 infrastructure GATUS_ALERT_TO
 matrix SYNAPSE_DB_PASSWORD
+paperless PAPERLESS_SECRET_KEY
+paperless PAPERLESS_DB_PASSWORD
+paperless PAPERLESS_CONSUME_DIR
 "
 
-for stack in proxy security infrastructure matrix; do
+for stack in proxy security infrastructure matrix paperless; do
     run_test "the $stack stack is accepted when every key has a value" check_stack_config "$stack" "" accepted
 done
 while read -r stack key; do

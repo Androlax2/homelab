@@ -1,0 +1,111 @@
+# Paperless-ngx: scanned and received documents, read (OCR), indexed and searchable. For the
+# tailnet only, on https://paperless.${PROXY_DOMAIN}.
+#
+# Its files are under ${DOCKERCONFDIR}, not ${DOCKERSTORAGEDIR}: the off-NAS backup takes the
+# first whole, and from the second only what it lists.
+name: paperless
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
+services:
+  paperless:
+    container_name: paperless
+    image: ghcr.io/paperless-ngx/paperless-ngx:v3.3.0
+    labels:
+      # Backup: the documents are plain files. What is known about them is in paperless-db.
+      homelab.backup: "none"
+      glance.name: "Paperless"
+      glance.id: "paperless"
+      glance.icon: "sh:paperless-ngx"
+      glance.description: "Documents"
+      glance.category: "productivity"
+      # The proxy URL, not http://${LAN_IP}:8010: PAPERLESS_URL binds the login to that address.
+      glance.url: "https://paperless.${PROXY_DOMAIN}"
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      paperless-db:
+        condition: service_healthy
+      paperless-redis:
+        condition: service_healthy
+    environment:
+      PAPERLESS_TIME_ZONE: ${TZ}
+      # The user Paperless runs as, and the owner of the documents it stores.
+      USERMAP_UID: ${PUID}
+      USERMAP_GID: ${PGID}
+      PAPERLESS_URL: https://paperless.${PROXY_DOMAIN}
+      # Required: it signs the sessions. Left empty, Paperless falls back on a key everyone knows.
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY:?set it with scripts/edit_env.sh paperless}
+      PAPERLESS_REDIS: redis://paperless-redis:6379
+      PAPERLESS_DBENGINE: postgresql
+      PAPERLESS_DBHOST: paperless-db
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD:?set it with scripts/edit_env.sh paperless}
+      # The languages the documents are read in. French and English are in the image.
+      PAPERLESS_OCR_LANGUAGE: fra+eng
+      # Looks into the inbox every 30 seconds instead of waiting to be told about a new file:
+      # a file dropped there over the network (SMB) is not always announced.
+      PAPERLESS_CONSUMER_POLLING_INTERVAL: 30
+    volumes:
+      - ${DOCKERCONFDIR}/paperless/data:/usr/src/paperless/data
+      - ${DOCKERCONFDIR}/paperless/media:/usr/src/paperless/media
+      # The inbox: a file dropped there is imported, then deleted from it.
+      - ${PAPERLESS_CONSUME_DIR:?set it with scripts/edit_env.sh paperless}:/usr/src/paperless/consume
+    ports:
+      - "8010:8000"
+
+  paperless-db:
+    container_name: paperless-db
+    image: postgres:18.6-alpine
+    labels:
+      homelab.backup: "postgres"
+      glance.name: "Paperless Database"
+      glance.icon: "sh:postgresql"
+      glance.description: "Postgres"
+      glance.category: "productivity"
+      glance.parent: "paperless"
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      TZ: ${TZ}
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: ${PAPERLESS_DB_PASSWORD:?set it with scripts/edit_env.sh paperless}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      # /var/lib/postgresql, not .../data — Postgres 18 layout.
+      - ${DOCKERCONFDIR}/paperless/postgres:/var/lib/postgresql
+    # No ports: DSM already owns 5432 for its own Postgres, and nothing outside
+    # the compose network needs this one.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless -d paperless"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  paperless-redis:
+    container_name: paperless-redis
+    image: redis:8.10.2-alpine
+    labels:
+      # Backup: the queue of documents being imported only.
+      homelab.backup: "none"
+      glance.name: "Paperless Redis"
+      glance.icon: "sh:redis"
+      glance.description: "Import queue"
+      glance.category: "productivity"
+      glance.parent: "paperless"
+    restart: unless-stopped
+    logging: *logging
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ${DOCKERCONFDIR}/paperless/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
