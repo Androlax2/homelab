@@ -21,13 +21,20 @@ services:
       glance.parent: "traefik"
     restart: unless-stopped
     logging: *logging
+    # A real network interface for the tailnet, not userspace networking, which hands every
+    # connection over from 127.0.0.1: AdGuard Home and Traefik then see which device is asking.
+    # It needs DSM's tun module loaded (`lsmod | grep -w tun`): without /dev/net/tun the
+    # container doesn't start.
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
     environment:
       - TZ=${TZ}
       - TS_AUTHKEY=${TS_AUTHKEY}
       - TS_HOSTNAME=jeancloud-proxy
       - TS_STATE_DIR=/var/lib/tailscale
-      # Userspace networking needs no /dev/net/tun, which DSM only has once its tun module is loaded.
-      - TS_USERSPACE=true
+      - TS_USERSPACE=false
     volumes:
       - ${DOCKERCONFDIR}/tailscale:/var/lib/tailscale:rw
     ports:

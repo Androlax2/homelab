@@ -134,9 +134,10 @@ The Livebox's DHCP is left alone: nothing uses AdGuard Home unless it was pointe
 what the whole house depends on to resolve names. The NAS itself keeps its own DNS servers.
 
 It runs in the `tailscale` container's network namespace, like Traefik, which is what puts its port 53 on the
-node's tailnet address. Two consequences: a tailnet query reaches it from `127.0.0.1`, so the query log can't
-tell tailnet devices apart, and when the NAS or this stack is down, a tailnet device resolves nothing until
-Tailscale is turned off on it, or the nameserver removed in the admin console.
+node's tailnet address. A tailnet query reaches it from the device's own tailnet address (100.x): name the
+devices in Settings > Client settings to tell them apart in the query log. When the NAS or this stack is down,
+a tailnet device resolves nothing until Tailscale is turned off on it, or the nameserver removed in the admin
+console.
 
 Glance's Home page shows its numbers for the last 24 hours (queries, share blocked, most blocked names),
 read with AdGuard Home's own login: `ADGUARD_USERNAME` and `ADGUARD_PASSWORD` in
@@ -434,6 +435,10 @@ The repo is public: secrets only in the NAS `.env` files, and security reviews a
   without it. `sudo scripts/edit_env.sh <stack>`.
 - **A route on `tailnet` hangs from one device**: that device is off Tailscale, or logged in with an account the
   proxy node is not shared with (`tailscale status` must list `jeancloud-proxy`).
+- **The `tailscale` container doesn't start (`/dev/net/tun`: no such file)**: DSM's tun module is not loaded,
+  and every proxy route is down with it. `sudo insmod /lib/modules/tun.ko`, then
+  `sudo scripts/compose.sh proxy up -d`. If it is missing after every reboot, load it from a Task Scheduler
+  boot task.
 - **A route answers with DSM's page**: its backend port in `stacks/proxy/.env` is wrong.
 - **No device on the tailnet resolves any name**: AdGuard Home is down (`sudo scripts/compose.sh proxy ps`).
   Meanwhile, turn Tailscale off on the device, or remove the nameserver in the Tailscale admin console.
