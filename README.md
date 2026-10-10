@@ -87,7 +87,7 @@ one wildcard certificate, obtained through Cloudflare's DNS (no port to open for
 
 | Entrypoint | Reachable from | Routes |
 |---|---|---|
-| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `matrix` |
+| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `matrix`, `adguard` |
 | `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex`, `jellyfin` |
 
 Traefik runs in the network namespace of the `tailscale` container, a tailnet node of its own
@@ -119,6 +119,33 @@ lists it (CI checks it).
 Apps bound to their URL need it on the NAS too: `VAULTWARDEN_DOMAIN` (`security`, and `infrastructure` for the
 dashboard's link), `APP_URL`, `SESSION_DOMAIN`, `SANCTUM_STATEFUL_DOMAINS` and `TRUSTED_PROXIES` (`opusline`), and
 in Plex, Settings > Network > Custom server access URLs (`https://plex.<domain>:443`).
+
+## DNS
+
+[AdGuard Home](https://adguard.com/adguard-home/overview.html) (`adguardhome`, in the `proxy` stack) is a DNS
+server that refuses the names of ad and tracker servers. A device only goes through it once it is told to:
+
+- **Tailnet devices**: in the Tailscale admin console, DNS, add the tailnet address of `jeancloud-proxy` as a
+  nameserver and turn on "Override DNS servers". It then applies everywhere, on mobile data too. Each
+  Tailscale account sets its own.
+- **Devices at home**: set `<LAN_IP>` as the DNS server in the device's own network settings.
+
+The Livebox's DHCP is left alone: nothing uses AdGuard Home unless it was pointed at it, so the NAS is not
+what the whole house depends on to resolve names. The NAS itself keeps its own DNS servers.
+
+It runs in the `tailscale` container's network namespace, like Traefik, which is what puts its port 53 on the
+node's tailnet address. Two consequences: a tailnet query reaches it from `127.0.0.1`, so the query log can't
+tell tailnet devices apart, and when the NAS or this stack is down, a tailnet device resolves nothing until
+Tailscale is turned off on it, or the nameserver removed in the admin console.
+
+Its settings (filter lists, allowed names, the login) are edited in its interface, `https://adguard.<domain>`,
+and kept in `${DOCKERCONFDIR}/adguardhome/conf`, not in this repo: AdGuard Home rewrites that file.
+
+### DNS setup
+
+Once, after the first deploy: open `http://<LAN_IP>:8054`, keep the wizard's ports (interface on 80, DNS on
+53, all interfaces) and create the login. The wizard then stops listening, and the interface answers on
+`https://adguard.<domain>`. Until then, Gatus reports AdGuard Home as down.
 
 ## Chat
 
@@ -402,6 +429,8 @@ The repo is public: secrets only in the NAS `.env` files, and security reviews a
 - **A route on `tailnet` hangs from one device**: that device is off Tailscale, or logged in with an account the
   proxy node is not shared with (`tailscale status` must list `jeancloud-proxy`).
 - **A route answers with DSM's page**: its backend port in `stacks/proxy/.env` is wrong.
+- **No device on the tailnet resolves any name**: AdGuard Home is down (`sudo scripts/compose.sh proxy ps`).
+  Meanwhile, turn Tailscale off on the device, or remove the nameserver in the Tailscale admin console.
 - **Vaultwarden sends no mail**: `sudo scripts/compose.sh security logs vaultwarden` shows the mail server's
   answer; the `VAULTWARDEN_SMTP_*` values are in `stacks/security/.env`.
 - **Deploy says `Backups: …`**: the nightly `backup_nas.sh` task didn't succeed. Open its last output in Task

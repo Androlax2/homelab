@@ -34,6 +34,14 @@ services:
       # Traefik's `public` entrypoint: the router forwards WAN 443 here. The `tailnet` one (443)
       # is never published.
       - "8444:8444"
+      # AdGuard Home's DNS, for the devices at home that are pointed at the NAS by hand. The
+      # tailnet reaches it on this node's own address, which needs no published port.
+      - "53:53/tcp"
+      - "53:53/udp"
+      # AdGuard Home's interface: what the proxy route and Gatus reach.
+      - "8053:80"
+      # AdGuard Home's setup wizard, which only listens until it has been completed once.
+      - "8054:3000"
 
   traefik:
     container_name: traefik
@@ -82,6 +90,33 @@ services:
     volumes:
       - ../../config/traefik:/etc/traefik/dynamic:ro
       - ${DOCKERCONFDIR}/traefik:/acme:rw
+
+  # DNS that blocks ads and trackers. In the tailscale container's network namespace, like
+  # Traefik: the tailnet can then use this node's address as its DNS server (Tailscale admin
+  # console, DNS). The ports the NAS publishes for it are on the tailscale service.
+  adguardhome:
+    container_name: adguardhome
+    image: adguard/adguardhome:v0.107.79
+    labels:
+      # Backup: the settings are a plain file. The query log and the statistics are not worth keeping.
+      homelab.backup: "none"
+      glance.name: "AdGuard Home"
+      glance.icon: "sh:adguard-home"
+      glance.description: "DNS ad blocking"
+      glance.category: "infrastructure"
+      glance.parent: "traefik"
+      glance.url: "https://adguard.${PROXY_DOMAIN}"
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      - tailscale
+    network_mode: service:tailscale
+    environment:
+      - TZ=${TZ}
+    volumes:
+      # Not in config/: AdGuard Home rewrites its settings file, which holds the login's password hash.
+      - ${DOCKERCONFDIR}/adguardhome/conf:/opt/adguardhome/conf:rw
+      - ${DOCKERCONFDIR}/adguardhome/work:/opt/adguardhome/work:rw
 
   # Keeps the DNS record of the `plex` route, the only public one, on the home's public address,
   # which the internet provider can change.

@@ -12,6 +12,9 @@
 # Queue and cache only
 /source/appdata/opusline/redis
 
+# AdGuard Home's query log and statistics, and the filter lists it downloads again
+/source/appdata/adguardhome/work
+
 # This backup's own SSH key and cache: the key opens the Storage Box
 /source/appdata/restic
 
