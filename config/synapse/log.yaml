@@ -1,0 +1,17 @@
+# To the console only: Docker rotates it, and Dozzle shows it.
+version: 1
+
+formatters:
+  precise:
+    format: "%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(request)s - %(message)s"
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: precise
+
+root:
+  level: INFO
+  handlers: [console]
+
+disable_existing_loggers: false

@@ -78,6 +78,10 @@ http:
       entryPoints: [public]
       rule: 'Host(`jellyfin.{{ env "PROXY_DOMAIN" }}`)'
       service: jellyfin
+    matrix:
+      entryPoints: [tailnet]
+      rule: 'Host(`matrix.{{ env "PROXY_DOMAIN" }}`)'
+      service: matrix
 
   services:
     vaultwarden:
@@ -152,3 +156,7 @@ http:
       loadBalancer:
         servers:
           - url: 'http://{{ env "LAN_IP" }}:8096'
+    matrix:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8008'
