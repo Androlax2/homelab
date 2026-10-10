@@ -102,7 +102,6 @@ services:
       glance.icon: "sh:adguard-home"
       glance.description: "DNS ad blocking"
       glance.category: "infrastructure"
-      glance.parent: "traefik"
       glance.url: "https://adguard.${PROXY_DOMAIN}"
     restart: unless-stopped
     logging: *logging

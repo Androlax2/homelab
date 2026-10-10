@@ -1,0 +1,10 @@
+# Queries answered and blocked by AdGuard Home over the last 24 hours, read on its LAN address
+# with its own login: AdGuard Home has no read-only user.
+- type: dns-stats
+  service: adguard
+  title: DNS
+  title-url: https://adguard.${PROXY_DOMAIN}
+  url: http://${LAN_IP}:8053
+  username: ${ADGUARD_USERNAME}
+  password: ${ADGUARD_PASSWORD}
+  hour-format: 24h

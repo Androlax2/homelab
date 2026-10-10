@@ -4,6 +4,7 @@
       widgets:
         $include: ../widgets/server-stats.yml
         $include: ../widgets/gatus.yml
+        $include: ../widgets/adguard-stats.yml
         $include: ../widgets/beszel-containers.yml
         $include: ../widgets/backups.yml
         $include: ../widgets/storage-box.yml

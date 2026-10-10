@@ -138,6 +138,10 @@ node's tailnet address. Two consequences: a tailnet query reaches it from `127.0
 tell tailnet devices apart, and when the NAS or this stack is down, a tailnet device resolves nothing until
 Tailscale is turned off on it, or the nameserver removed in the admin console.
 
+Glance's Home page shows its numbers for the last 24 hours (queries, share blocked, most blocked names),
+read with AdGuard Home's own login: `ADGUARD_USERNAME` and `ADGUARD_PASSWORD` in
+`sudo scripts/edit_env.sh infrastructure`.
+
 Its settings (filter lists, allowed names, the login) are edited in its interface, `https://adguard.<domain>`,
 and kept in `${DOCKERCONFDIR}/adguardhome/conf`, not in this repo: AdGuard Home rewrites that file.
 
