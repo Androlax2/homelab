@@ -1,0 +1,121 @@
+# Who visits the site, from Cloudflare Web Analytics, which has no embed and no public link: its
+# GraphQL API is the way in. The dates move, so the request is built in the template and not in
+# `url`. Today starts at midnight in the NAS's timezone, 7 days is the last 168 hours, and bots
+# are left out, as in Cloudflare's dashboard.
+# The numbers are sampled and counted without a cookie: a visit is a page load that did not come
+# from the site itself, not a person. A page of the site that refers has no visit by that
+# definition, which is what keeps the site out of its own referrers.
+- type: custom-api
+  title: Audience
+  title-url: https://dash.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID}/web-analytics/overview?siteTag~in=${CLOUDFLARE_ANALYTICS_SITE_TAG}
+  cache: 30m
+  options:
+    query: |
+      query ($account: string, $site: string, $today: string, $weekAgo: string, $now: string) {
+        viewer {
+          accounts(filter: {accountTag: $account}) {
+            today: rumPageloadEventsAdaptiveGroups(limit: 1, filter: {siteTag: $site, bot: 0, datetime_geq: $today, datetime_leq: $now}) {
+              count
+              sum { visits }
+            }
+            week: rumPageloadEventsAdaptiveGroups(limit: 1, filter: {siteTag: $site, bot: 0, datetime_geq: $weekAgo, datetime_leq: $now}) {
+              count
+              sum { visits }
+            }
+            pages: rumPageloadEventsAdaptiveGroups(limit: 8, orderBy: [count_DESC], filter: {siteTag: $site, bot: 0, datetime_geq: $weekAgo, datetime_leq: $now}) {
+              count
+              dimensions { requestPath }
+            }
+            referrers: rumPageloadEventsAdaptiveGroups(limit: 8, orderBy: [sum_visits_DESC], filter: {siteTag: $site, bot: 0, datetime_geq: $weekAgo, datetime_leq: $now}) {
+              sum { visits }
+              dimensions { refererHost }
+            }
+          }
+        }
+      }
+  template: |
+    {{ $today := (now | startOfDay).UTC | formatTime "RFC3339" }}
+    {{ $weekAgo := (offsetNow "-168h").UTC | formatTime "RFC3339" }}
+    {{ $now := (now).UTC | formatTime "RFC3339" }}
+    {{/* %q quotes the query as a JSON string, line breaks included. */}}
+    {{ $body := printf `{"query":%q,"variables":{"account":%q,"site":%q,"today":%q,"weekAgo":%q,"now":%q}}` (.Options.StringOr "query" "") "${CLOUDFLARE_ACCOUNT_ID}" "${CLOUDFLARE_ANALYTICS_SITE_TAG}" $today $weekAgo $now }}
+    {{ $analytics := newRequest "https://api.cloudflare.com/client/v4/graphql"
+      | withHeader "Authorization" "Bearer ${CLOUDFLARE_ANALYTICS_TOKEN}"
+      | withHeader "Content-Type" "application/json"
+      | withStringBody $body
+      | getResponse }}
+    {{/* The API answers 200 to a query it refuses, with the reason in "errors". */}}
+    {{ if ne $analytics.Response.StatusCode 200 }}
+      <p class="color-negative">Cloudflare API: {{ $analytics.Response.Status }}{{ range $analytics.JSON.Array "errors" }}, {{ .String "message" }}{{ end }}. Is CLOUDFLARE_ANALYTICS_TOKEN still valid?</p>
+    {{ else if gt (len ($analytics.JSON.Array "errors")) 0 }}
+      <p class="color-negative">Cloudflare API: {{ range $analytics.JSON.Array "errors" }}{{ .String "message" }} {{ end }}</p>
+    {{ else if not ($analytics.JSON.Exists "data.viewer.accounts.0") }}
+      <p class="color-negative">Cloudflare API: no account in the answer. Check CLOUDFLARE_ACCOUNT_ID.</p>
+    {{ else }}
+      {{ $account := "data.viewer.accounts.0" }}
+      <div class="flex justify-between text-center">
+        <div>
+          <div class="color-highlight size-h3">{{ $analytics.JSON.Int (concat $account ".today.0.sum.visits") | formatNumber }}</div>
+          <div class="size-h6">VISITS TODAY</div>
+        </div>
+        <div>
+          <div class="color-highlight size-h3">{{ $analytics.JSON.Int (concat $account ".today.0.count") | formatNumber }}</div>
+          <div class="size-h6">PAGE VIEWS TODAY</div>
+        </div>
+        <div>
+          <div class="color-highlight size-h3">{{ $analytics.JSON.Int (concat $account ".week.0.sum.visits") | formatNumber }}</div>
+          <div class="size-h6">VISITS, 7 DAYS</div>
+        </div>
+        <div>
+          <div class="color-highlight size-h3">{{ $analytics.JSON.Int (concat $account ".week.0.count") | formatNumber }}</div>
+          <div class="size-h6">PAGE VIEWS, 7 DAYS</div>
+        </div>
+      </div>
+      <div class="margin-top-15" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 1.5rem 3rem;">
+        <div>
+          <div class="size-h6 color-subdue margin-bottom-5">TOP PAGES, 7 DAYS</div>
+          <ul class="list list-gap-4">
+            {{ range $analytics.JSON.Array (concat $account ".pages") }}
+              <li class="flex justify-between gap-10">
+                <span class="text-truncate">{{ .String "dimensions.requestPath" }}</span>
+                <span class="color-highlight shrink-0">{{ .Int "count" | formatNumber }}</span>
+              </li>
+            {{ else }}
+              <li class="color-subdue">No page view yet.</li>
+            {{ end }}
+          </ul>
+        </div>
+        <div>
+          <div class="size-h6 color-subdue margin-bottom-5">TOP REFERRERS, 7 DAYS</div>
+          <ul class="list list-gap-4">
+            {{ range $analytics.JSON.Array (concat $account ".referrers") }}
+              {{ if gt (.Int "sum.visits") 0 }}
+                <li class="flex justify-between gap-10">
+                  <span class="text-truncate">{{ if eq (.String "dimensions.refererHost") "" }}direct or unknown{{ else }}{{ .String "dimensions.refererHost" }}{{ end }}</span>
+                  <span class="color-highlight shrink-0">{{ .Int "sum.visits" | formatNumber }}</span>
+                </li>
+              {{ end }}
+            {{ else }}
+              <li class="color-subdue">No visit yet.</li>
+            {{ end }}
+          </ul>
+        </div>
+      </div>
+      <div class="size-h6 color-subdue margin-top-15">
+        Sampled, counted without a cookie: a visit is a page load that did not come from the site itself, not a person.
+      </div>
+      {{/* Any valid token may ask when it ends: this needs no permission of its own. */}}
+      {{ $token := newRequest "https://api.cloudflare.com/client/v4/user/tokens/verify"
+        | withHeader "Authorization" "Bearer ${CLOUDFLARE_ANALYTICS_TOKEN}"
+        | getResponse }}
+      {{ if ne $token.Response.StatusCode 200 }}
+        <div class="size-h6 color-negative margin-top-5">Token end date unknown: Cloudflare API, {{ $token.Response.Status }}</div>
+      {{ else if not ($token.JSON.Exists "result.expires_on") }}
+        <div class="size-h6 color-subdue margin-top-5">CLOUDFLARE_ANALYTICS_TOKEN has no end date.</div>
+      {{ else }}
+        {{ $expiry := $token.JSON.String "result.expires_on" | parseTime "RFC3339" }}
+        <div class="size-h6 margin-top-5 {{ if $expiry.Before (offsetNow "336h") }}color-negative{{ else }}color-subdue{{ end }}">
+          CLOUDFLARE_ANALYTICS_TOKEN ends on {{ $expiry | formatTime "2006-01-02" }}.
+        </div>
+      {{ end }}
+    {{ end }}
