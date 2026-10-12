@@ -20,5 +20,6 @@ theme:
 pages:
   - $include: pages/home.yml
   - $include: pages/medias.yml
+  - $include: pages/theobenoit.yml
 branding:
   logo-text: "root@jeancloud:~#"

@@ -1,0 +1,65 @@
+# The last run of each workflow that watches the live site: Live checks (daily), Performance and
+# Maintenance (Mondays), and Contact alert, which the Worker starts when the contact form fails
+# to send, so "never run" is its good news. Runs started by hand count: the last run, whoever
+# started it, is the one that opened or closed the alert issue.
+- type: custom-api
+  title: Checks
+  title-url: https://github.com/theobenoit-dev/theobenoit.fr/actions
+  cache: 10m
+  url: https://api.github.com/repos/theobenoit-dev/theobenoit.fr/actions/workflows/live-checks.yml/runs?per_page=1
+  headers:
+    Authorization: Bearer ${THEOBENOIT_GITHUB_TOKEN}
+    Accept: application/vnd.github+json
+  subrequests:
+    performance:
+      url: https://api.github.com/repos/theobenoit-dev/theobenoit.fr/actions/workflows/performance.yml/runs?per_page=1
+      headers:
+        Authorization: Bearer ${THEOBENOIT_GITHUB_TOKEN}
+        Accept: application/vnd.github+json
+    maintenance:
+      url: https://api.github.com/repos/theobenoit-dev/theobenoit.fr/actions/workflows/maintenance.yml/runs?per_page=1
+      headers:
+        Authorization: Bearer ${THEOBENOIT_GITHUB_TOKEN}
+        Accept: application/vnd.github+json
+    contact-alert:
+      url: https://api.github.com/repos/theobenoit-dev/theobenoit.fr/actions/workflows/contact-alert.yml/runs?per_page=1
+      headers:
+        Authorization: Bearer ${THEOBENOIT_GITHUB_TOKEN}
+        Accept: application/vnd.github+json
+  template: |
+    {{ define "last-run" }}
+      {{ if ne .Response.StatusCode 200 }}
+        <span class="color-negative">GitHub API: {{ .Response.Status }}</span>
+      {{ else if eq (.JSON.Int "total_count") 0 }}
+        <span class="color-subdue">never run</span>
+      {{ else }}
+        {{ $isRunning := ne (.JSON.String "workflow_runs.0.status") "completed" }}
+        {{ $conclusion := .JSON.String "workflow_runs.0.conclusion" }}
+        <span>
+          <a class="{{ if $isRunning }}color-primary{{ else if eq $conclusion "success" }}color-positive{{ else }}color-negative{{ end }}" href="{{ .JSON.String "workflow_runs.0.html_url" }}" target="_blank" rel="noreferrer">{{ if $isRunning }}running{{ else }}{{ $conclusion }}{{ end }}</a>
+          <span class="size-h6 color-subdue">· <span {{ .JSON.String "workflow_runs.0.created_at" | parseTime "RFC3339" | toRelativeTime }}></span> ago</span>
+        </span>
+      {{ end }}
+    {{ end }}
+    {{ if ne .Response.StatusCode 200 }}
+      <p class="color-negative">GitHub API: {{ .Response.Status }}. Is THEOBENOIT_GITHUB_TOKEN still valid?</p>
+    {{ else }}
+      <ul class="list list-gap-10">
+        <li class="flex justify-between items-center gap-10">
+          <span class="color-highlight">Live checks</span>
+          {{ template "last-run" . }}
+        </li>
+        <li class="flex justify-between items-center gap-10">
+          <span class="color-highlight">Performance</span>
+          {{ template "last-run" (.Subrequest "performance") }}
+        </li>
+        <li class="flex justify-between items-center gap-10">
+          <span class="color-highlight">Maintenance</span>
+          {{ template "last-run" (.Subrequest "maintenance") }}
+        </li>
+        <li class="flex justify-between items-center gap-10">
+          <span class="color-highlight">Contact alert</span>
+          {{ template "last-run" (.Subrequest "contact-alert") }}
+        </li>
+      </ul>
+    {{ end }}

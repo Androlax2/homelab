@@ -1,0 +1,14 @@
+# The freelance site (github.com/theobenoit-dev/theobenoit.fr, private): whether it answers, the
+# alerts its scheduled checks opened, the last run of each check, and the repository.
+- name: theobenoit.fr
+  slug: theobenoit
+  columns:
+    - size: small
+      widgets:
+        $include: ../widgets/theobenoit-site.yml
+        $include: ../widgets/theobenoit-alerts.yml
+
+    - size: full
+      widgets:
+        $include: ../widgets/theobenoit-checks.yml
+        $include: ../widgets/theobenoit-repository.yml
