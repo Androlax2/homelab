@@ -87,7 +87,7 @@ one wildcard certificate, obtained through Cloudflare's DNS (no port to open for
 
 | Entrypoint | Reachable from | Routes |
 |---|---|---|
-| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `matrix`, `adguard` |
+| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `matrix`, `adguard`, `paperless` |
 | `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex`, `jellyfin` |
 
 Traefik runs in the network namespace of the `tailscale` container, a tailnet node of its own
@@ -154,6 +154,22 @@ service's ports in [`stacks/proxy/compose.yml`](stacks/proxy/compose.yml) for th
 `http://<LAN_IP>:8054`, keep the wizard's ports (interface on 80, DNS on 53, all interfaces) and create the
 login. Until then, Gatus reports AdGuard Home as down.
 
+## Documents
+
+The `paperless` stack is [Paperless-ngx](https://docs.paperless-ngx.com): it reads each document it is given
+(OCR, in French and English), indexes its text, and files it by correspondent, type and date. On the `tailnet`
+entrypoint only.
+
+- The login is created on the NAS, once the stack runs:
+  `sudo docker exec -it paperless python3 manage.py createsuperuser`
+- Documents come in through its interface, a phone app pointed at `https://paperless.<domain>`, or the inbox:
+  every file dropped in `PAPERLESS_CONSUME_DIR` is imported within 30 seconds, then deleted from there. The
+  first deploy sets it to `${DOCKERCONFDIR}/paperless/consume`; to drop files from a computer or a scanner,
+  point it at a shared folder of the NAS (`sudo scripts/edit_env.sh paperless`) that the user `PUID` can write in.
+- The documents are plain files in `${DOCKERCONFDIR}/paperless/media`, which the off-NAS backup copies as they
+  are; their tags, correspondents and text are in `paperless-db`. To restore: both, from the same night.
+- Office files and emails are not read: that takes two more services (Tika, Gotenberg), not installed.
+
 ## Chat
 
 The `matrix` stack is a private [Matrix](https://matrix.org) homeserver (Synapse and its Postgres), for
@@ -208,7 +224,7 @@ ghcr.io/raydak-labs/configarr:<version in stacks/media/compose.yml>`.
 `scripts/backup_nas.sh` runs every night as root and takes the NAS's own data off the NAS, to the Hetzner Storage Box:
 
 1. `scripts/backup_databases.sh` dumps every database into `${BACKUPDIR}/<date>/` (14 days kept), by label, see below.
-2. restic, from `stacks/backup`, backs up the photos, the app data, those dumps, the home folders and this checkout
+2. restic, from `stacks/backup`, backs up the photos, the app data, Opusline's files, those dumps, the home folders and this checkout
    (its `.env` files included), minus [`stacks/backup/excludes.txt`](stacks/backup/excludes.txt): live database
    folders, caches and what the apps regenerate. Encrypted with `RESTIC_PASSWORD`.
 3. On Sundays, restic forgets old snapshots (7 daily, 4 weekly, 12 monthly), prunes, and reads back a 5% sample.
@@ -221,7 +237,7 @@ Every service with a writable volume has a `homelab.backup` label. CI fails unti
 
 | Label | What `backup_databases.sh` does | Used by |
 |---|---|---|
-| `postgres` | `pg_dumpall` into `<container>.sql.gz`, kept only if the dump is complete | Immich, Opusline, Prowlarr, Matrix databases |
+| `postgres` | `pg_dumpall` into `<container>.sql.gz`, kept only if the dump is complete | Immich, Opusline, Prowlarr, Matrix, Paperless databases |
 | `sqlite` | copies every SQLite file in the container's `${DOCKERCONFDIR}` folders with SQLite's online backup, as the file's owner, under the same relative path, and checks each copy with `PRAGMA quick_check`; skips an app's own dated copies (`name-YYYY-MM-DD`) | Vaultwarden, Sonarr, Radarr, Tautulli, Seerr, Maintainerr, Jellyfin, Beszel |
 | `sqlite-unchecked` | like `sqlite`, without the check: for databases only the app's own SQLite build can open fully; the log marks each copy `(not checked)` | Plex |
 | `bolt` | stops the container, archives its `${DOCKERCONFDIR}` folders into `<container>.tar.gz`, starts it again (seconds of downtime) | Filebrowser |
@@ -295,7 +311,7 @@ Every restic command runs through the stack, e.g. `sudo scripts/compose.sh backu
 
 - Files: mount a folder to restore into, e.g.
   `sudo scripts/compose.sh backup run --rm -T -v /volume1/restore:/restore restic restore latest --target /restore --include /source/appdata/sonarr`.
-  Snapshot paths start with `/source/photos`, `/source/appdata`, `/source/databases`, `/source/homes` and
+  Snapshot paths start with `/source/photos`, `/source/appdata`, `/source/opusline`, `/source/databases`, `/source/homes` and
   `/source/homelab`.
 - Postgres: restore the dump from `/source/databases/<date>/`, then
   `gunzip -c <file>.sql.gz | sudo docker exec -i <container> psql -U <user> -d postgres`.

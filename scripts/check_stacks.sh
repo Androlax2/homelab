@@ -28,6 +28,7 @@ export VAULTWARDEN_SMTP_HOST=smtp.example.com VAULTWARDEN_SMTP_PORT=587 VAULTWAR
 export VAULTWARDEN_SMTP_USERNAME=check VAULTWARDEN_SMTP_PASSWORD=check VAULTWARDEN_SMTP_FROM=vault@example.com
 export GATUS_SMTP_HOST=smtp.example.com GATUS_SMTP_PORT=587 GATUS_SMTP_FROM=gatus@example.com GATUS_ALERT_TO=alerts@example.com
 export SYNAPSE_DB_PASSWORD=check
+export PAPERLESS_SECRET_KEY=check PAPERLESS_DB_PASSWORD=check PAPERLESS_CONSUME_DIR=/check/paperless-inbox
 
 # Prints one line per service that breaks the privilege rules above.
 privilege_violations() {

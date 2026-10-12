@@ -86,6 +86,10 @@ http:
       entryPoints: [tailnet]
       rule: 'Host(`adguard.{{ env "PROXY_DOMAIN" }}`)'
       service: adguard
+    paperless:
+      entryPoints: [tailnet]
+      rule: 'Host(`paperless.{{ env "PROXY_DOMAIN" }}`)'
+      service: paperless
 
   services:
     vaultwarden:
@@ -168,3 +172,7 @@ http:
       loadBalancer:
         servers:
           - url: 'http://{{ env "LAN_IP" }}:8053'
+    paperless:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8010'

@@ -40,6 +40,12 @@
       "enabled": false
     },
     {
+      "description": "A Paperless major version comes with migrations: read its release notes, then merge by hand",
+      "matchPackageNames": ["ghcr.io/paperless-ngx/paperless-ngx"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
       "description": "Immich pins its database and cache images itself: update them from the Immich release notes",
       "matchPackageNames": ["ghcr.io/immich-app/postgres", "docker.io/valkey/valkey", "valkey/valkey"],
       "enabled": false

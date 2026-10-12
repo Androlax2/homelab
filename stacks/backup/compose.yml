@@ -34,6 +34,8 @@ services:
       - ${DOCKERCONFDIR}/restic/cache:/cache
       - ./excludes.txt:/excludes.txt:ro
       - ${DOCKERSTORAGEDIR}/library:/source/photos:ro
+      # What Opusline stores outside its database: the invoices and the documents uploaded to it.
+      - ${DOCKERSTORAGEDIR}/opusline:/source/opusline:ro
       - ${DOCKERCONFDIR}:/source/appdata:ro
       - ${BACKUPDIR}:/source/databases:ro
       - ${HOMESDIR}:/source/homes:ro
