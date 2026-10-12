@@ -1,0 +1,11 @@
+# Asked from the NAS: when the home connection is down this says the site is down, and it is not.
+# Until launch the domain serves the construction page and only this address exists. At launch,
+# add https://theobenoit.fr/projets/hartprint and https://theobenoit.fr/contact (the one page
+# the Worker renders, so it fails differently from the static files).
+- type: monitor
+  title: The site
+  cache: 1m
+  sites:
+    - title: Home
+      url: https://theobenoit.fr/
+      icon: si:cloudflare

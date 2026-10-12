@@ -1,0 +1,8 @@
+# The site's repository is private, so unlike homelab-repository.yml this one needs the token.
+- type: repository
+  repository: theobenoit-dev/theobenoit.fr
+  token: ${THEOBENOIT_GITHUB_TOKEN}
+  cache: 10m
+  pull-requests-limit: 5
+  issues-limit: 5
+  commits-limit: 5

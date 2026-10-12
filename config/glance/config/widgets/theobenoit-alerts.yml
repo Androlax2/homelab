@@ -1,0 +1,38 @@
+# The issues the site's scheduled checks open when they fail and close when they pass again
+# (.github/actions/alert-issue there): an empty list is the good news. The same bot can open
+# pull requests, which GitHub lists as issues too: they are left out.
+- type: custom-api
+  title: Open alerts
+  title-url: https://github.com/theobenoit-dev/theobenoit.fr/issues?q=is%3Aissue+is%3Aopen+author%3Aapp%2Fgithub-actions
+  cache: 5m
+  url: https://api.github.com/repos/theobenoit-dev/theobenoit.fr/issues?state=open&creator=app%2Fgithub-actions&per_page=100
+  headers:
+    Authorization: Bearer ${THEOBENOIT_GITHUB_TOKEN}
+    Accept: application/vnd.github+json
+  template: |
+    {{ if ne .Response.StatusCode 200 }}
+      <p class="color-negative">GitHub API: {{ .Response.Status }}. Is THEOBENOIT_GITHUB_TOKEN still valid?</p>
+    {{ else }}
+      {{ $alertCount := 0 }}
+      {{ range .JSON.Array "" }}
+        {{ if not (.Exists "pull_request") }}
+          {{ $alertCount = add $alertCount 1 }}
+        {{ end }}
+      {{ end }}
+      {{ if eq $alertCount 0 }}
+        <p class="color-positive">No alert is open.</p>
+      {{ else }}
+        <ul class="list list-gap-10">
+          {{ range .JSON.Array "" }}
+            {{ if not (.Exists "pull_request") }}
+              <li>
+                <a class="color-negative" href="{{ .String "html_url" }}" target="_blank" rel="noreferrer">{{ .String "title" }}</a>
+                <div class="size-h6 color-subdue">
+                  opened <span {{ .String "created_at" | parseTime "RFC3339" | toRelativeTime }}></span> ago
+                </div>
+              </li>
+            {{ end }}
+          {{ end }}
+        </ul>
+      {{ end }}
+    {{ end }}

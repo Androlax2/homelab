@@ -332,6 +332,12 @@ Glance's Home page shows two things from them: how many of Gatus's checks are up
 named, and the containers using the most CPU and memory according to Beszel. Glance reads Beszel as a read-only
 Beszel user of its own, which `SHARE_ALL_SYSTEMS` lets see the NAS.
 
+Glance's theobenoit.fr page watches something that does not run here: the freelance site, hosted at Cloudflare, and
+its private repository. It shows whether the site answers, the alert issues its scheduled checks opened, the last
+run of each of those checks, and the repository's pull requests, issues and commits. It reads GitHub with a token
+of its own (`THEOBENOIT_GITHUB_TOKEN`); a dead token shows as an error line in each widget, not as an empty one.
+It only shows: what alerts is GitHub, which emails each alert issue.
+
 ### Monitoring setup
 
 Once, on the NAS:
@@ -359,6 +365,10 @@ Once, on the NAS:
    account of step 4), and in the `users` collection create a record with an email, a password, the role
    `readonly` and Verified turned on. Put both in `sudo scripts/edit_env.sh infrastructure`
    (`BESZEL_GLANCE_EMAIL`, `BESZEL_GLANCE_PASSWORD`).
+6. The dashboard's token for theobenoit.fr: GitHub, Settings, Developer settings, Fine-grained tokens. Resource owner
+   `theobenoit-dev`, the repository `theobenoit.fr` only, read-only on Actions, Contents, Issues, Metadata and Pull
+   requests. Put it in `sudo scripts/edit_env.sh infrastructure` (`THEOBENOIT_GITHUB_TOKEN`). It expires: the page
+   says so when it has.
 
 ## Scripts
 
