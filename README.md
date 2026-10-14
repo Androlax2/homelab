@@ -87,7 +87,7 @@ one wildcard certificate, obtained through Cloudflare's DNS (no port to open for
 
 | Entrypoint | Reachable from | Routes |
 |---|---|---|
-| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `matrix`, `adguard` |
+| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `matrix`, `adguard`, `velobook` |
 | `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex`, `jellyfin` |
 
 Traefik runs in the network namespace of the `tailscale` container, a tailnet node of its own
@@ -175,6 +175,31 @@ it talks to no other homeserver, and none can talk to it. Nothing is hosted for 
 - The server's name is `matrix.<domain>` and is part of every user ID (`@name:matrix.<domain>`): it can never
   change. It is in `${DOCKERCONFDIR}/matrix/synapse/local.yaml`, with the database password, written by the
   stack's first deploy; the rest of Synapse's settings is [`config/synapse/homeserver.yaml`](config/synapse/homeserver.yaml).
+
+## velobook
+
+The `velobook` stack books the best electric vélôToulouse bike and holds it until a chosen time
+([Androlax2/velobook-toulouse](https://github.com/Androlax2/velobook-toulouse), private). It is on the
+`tailnet` entrypoint only, at `https://velobook.<domain>`: phones only share their location over HTTPS, so
+"book nearest" needs that address, not the LAN one.
+
+- **Its image is private.** Once, on the NAS, as root (the deploy pulls as root), log in to GHCR with a
+  GitHub classic token that has only the `read:packages` scope:
+  ```sh
+  sudo docker login ghcr.io -u Androlax2    # paste the token as the password
+  ```
+  The login is saved in `/root/.docker/config.json`. Without it, the deploy fails to pull the image.
+- **Releases:** a `vX.Y.Z` tag in the velobook repo publishes `ghcr.io/androlax2/velobook-toulouse:X.Y.Z`.
+  Renovate proposes it here like any other image, if it can read the private package. If the
+  Dependency Dashboard shows a lookup error for it, bump the version in
+  [`stacks/velobook/compose.yml`](stacks/velobook/compose.yml) by hand.
+- **Keys:** `sudo scripts/edit_env.sh velobook` (`VELO_APP_KEY`, `VELO_JCDECAUX_KEY`), or leave them empty and
+  set them in velobook's Settings page.
+- **People:** each person creates a profile with a PIN and logs into their own vélôToulouse account from
+  the page. There is no other login, so a friend first needs Tailscale and `jeancloud-proxy` shared with
+  them (see [Remote access](#remote-access)).
+- **Data:** `${DOCKERCONFDIR}/velobook`, owned by uid 65532 (the image's user), plain JSON files: profiles,
+  vélôToulouse logins, PIN hashes, keys. restic backs it up with the rest of the app data.
 
 ## Sonarr and Radarr settings
 
@@ -407,10 +432,12 @@ Compose). CI runs them, the three checks and gitleaks on every push and pull req
 5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
 6. Backups: follow [Backups, Setup](#setup). Until a backup succeeds, the deploy reports it.
 7. Sonarr and Radarr settings: Task Scheduler, `docker start -a configarr` as root every day, email on failure.
-8. Remote access: see [Remote access](#remote-access). A restored `${DOCKERCONFDIR}/tailscale` keeps the node and
+8. velobook: `sudo docker login ghcr.io` (see [velobook](#velobook)) before the first deploy, or its image
+   can't be pulled.
+9. Remote access: see [Remote access](#remote-access). A restored `${DOCKERCONFDIR}/tailscale` keeps the node and
    its address; without it, set a new `TS_AUTHKEY` and point the `vault` and `opusline` DNS records to the new
    address.
-9. Beszel: [Monitoring setup](#monitoring-setup), step 4. A restored `${DOCKERCONFDIR}/beszel` keeps the account,
+10. Beszel: [Monitoring setup](#monitoring-setup), step 4. A restored `${DOCKERCONFDIR}/beszel` keeps the account,
    the key and the token.
 
 ## Security

@@ -86,6 +86,10 @@ http:
       entryPoints: [tailnet]
       rule: 'Host(`adguard.{{ env "PROXY_DOMAIN" }}`)'
       service: adguard
+    velobook:
+      entryPoints: [tailnet]
+      rule: 'Host(`velobook.{{ env "PROXY_DOMAIN" }}`)'
+      service: velobook
 
   services:
     vaultwarden:
@@ -168,3 +172,7 @@ http:
       loadBalancer:
         servers:
           - url: 'http://{{ env "LAN_IP" }}:8053'
+    velobook:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8770'
