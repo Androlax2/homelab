@@ -65,6 +65,11 @@ endpoints:
     group: matrix
     url: http://${LAN_IP}:8008/health
 
+  - name: velobook
+    <<: *defaults
+    group: velobook
+    url: http://${LAN_IP}:8770/healthz
+
   - name: Plex
     <<: *defaults
     group: media

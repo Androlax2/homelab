@@ -1,0 +1,45 @@
+# velobook: books the best electric vélôToulouse bike and holds it until a chosen
+# time, one profile (with its own PIN) per person. Built from the private repo
+# Androlax2/velobook-toulouse; a vX.Y.Z tag there publishes this image.
+#
+# The image is private on GHCR: the NAS pulls it with the `docker login ghcr.io`
+# done once as root (README, velobook).
+#
+# Server-wide values (DOCKERCONFDIR, DOCKERLOGGING_*, TZ, PROXY_DOMAIN) come from
+# stacks/common.env, the keys from stacks/velobook/.env.
+name: velobook
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
+services:
+  velobook:
+    container_name: velobook
+    image: ghcr.io/androlax2/velobook-toulouse:0.1.0
+    labels:
+      # Backup: plain JSON files (profiles, vélôToulouse logins, PIN hashes, keys)
+      # that restic copies as they are.
+      homelab.backup: "none"
+      glance.name: "velobook"
+      glance.icon: "mdi:bike-fast"
+      glance.description: "vélôToulouse booker"
+      glance.category: "productivity"
+      glance.url: "https://velobook.${PROXY_DOMAIN}"
+    restart: unless-stopped
+    logging: *logging
+    # Listed one by one, not through env_file: it only gets what it reads.
+    # Both keys can also be set in its Settings page, which saves them under /data.
+    environment:
+      TZ: ${TZ}
+      VELO_APP_KEY: ${VELO_APP_KEY}
+      VELO_JCDECAUX_KEY: ${VELO_JCDECAUX_KEY}
+    # The image runs as uid 65532 (distroless nonroot): the operation that creates
+    # this folder gives it to that uid.
+    volumes:
+      - ${DOCKERCONFDIR}/velobook:/data
+    # The healthcheck is in the image (velobook -healthcheck).
+    ports:
+      - "8770:8080"
