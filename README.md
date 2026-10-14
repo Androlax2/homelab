@@ -199,6 +199,21 @@ The `velobook` stack books the best electric vélôToulouse bike and holds it un
 - **People:** each person creates a profile with a PIN and logs into their own vélôToulouse account from
   the page. There is no other login, so a friend first needs Tailscale and `jeancloud-proxy` shared with
   them (see [Remote access](#remote-access)).
+- **Sharing it with a friend, and only it.** Sharing `jeancloud-proxy` would give them every tailnet route,
+  all on its one port 443. Instead, `velobook-tailscale` is a tailnet node of its own (`velobook`), which
+  only serves velobook, over HTTPS with a `ts.net` certificate (Tailscale Serve,
+  [`config/velobook-tailscale/serve.json`](config/velobook-tailscale/serve.json)). In the admin console:
+  1. Before the deploy that adds it: DNS, keep MagicDNS on and turn on **HTTPS Certificates**. Then
+     Settings > Keys, generate an auth key and put it in `sudo scripts/edit_env.sh velobook`
+     (`TS_AUTHKEY`). The deploy stops while that key is missing from the file.
+  2. Once `velobook` shows in Machines, in its menu: **Disable key expiry**, then **Share…**, with the
+     friend's email. They accept the invite in their Tailscale app.
+  3. They open `https://velobook.<tailnet>.ts.net` (the full name is in the machine's details), create a
+     profile with a PIN and log into their own vélôToulouse account.
+
+  The friend sees this one machine in their Tailscale, nothing else of the tailnet. The certificate puts
+  `velobook.<tailnet>.ts.net` in the public Certificate Transparency logs, like any HTTPS name. You keep
+  using `https://velobook.<domain>`: both reach the same app and data.
 - **Data:** `${DOCKERCONFDIR}/velobook`, owned by uid 65532 (the image's user), plain JSON files: profiles,
   vélôToulouse logins, PIN hashes, keys. restic backs it up with the rest of the app data.
 

@@ -43,3 +43,37 @@ services:
     # The healthcheck is in the image (velobook -healthcheck).
     ports:
       - "8770:8080"
+
+  # A tailnet node of velobook's own, so a friend can be given velobook and nothing else:
+  # sharing jeancloud-proxy would open every tailnet route (vault, sonarr…) to them, since
+  # they all sit on its one port 443. This node only serves velobook, over HTTPS with a
+  # ts.net certificate (config/velobook-tailscale/serve.json). Share it from the admin
+  # console (README, velobook).
+  velobook-tailscale:
+    container_name: velobook-tailscale
+    image: tailscale/tailscale:v1.104.1
+    hostname: velobook
+    labels:
+      # Backup: the node's identity is a plain file.
+      homelab.backup: "none"
+      glance.name: "velobook Tailscale"
+      glance.icon: "sh:tailscale"
+      glance.description: "velobook's own node, to share"
+      glance.category: "productivity"
+      glance.parent: "velobook"
+    restart: unless-stopped
+    logging: *logging
+    # Userspace networking: no tun device, no NET_ADMIN. The node then answers only on what
+    # Serve publishes (443), and velobook doesn't need to see the caller's tailnet address.
+    environment:
+      - TZ=${TZ}
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_HOSTNAME=velobook
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ${DOCKERCONFDIR}/velobook-tailscale:/var/lib/tailscale:rw
+      - ../../config/velobook-tailscale:/config:ro
+    depends_on:
+      - velobook
