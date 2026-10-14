@@ -89,6 +89,7 @@ one wildcard certificate, obtained through Cloudflare's DNS (no port to open for
 |---|---|---|
 | `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `matrix`, `adguard`, `velobook` |
 | `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex`, `jellyfin` |
+| `shared` (8446, not published) | the friends the `velobook` node is shared with, through that node | `velobook` |
 
 Traefik runs in the network namespace of the `tailscale` container, a tailnet node of its own
 (`jeancloud-proxy`): its port 443 is not the NAS's, so DSM keeps its own and nothing outside the tailnet reaches it.
@@ -114,7 +115,7 @@ the node is shared with that account (admin console, the machine's Share menu): 
 
 To add a route: a router and a service in [`config/traefik/routes.yml`](config/traefik/routes.yml), plus a DNS
 record for a public one. A router goes on `public` only if `PUBLIC_ROUTERS` in `scripts/check_proxy_routes.sh`
-lists it (CI checks it).
+lists it, and on `shared` only if `SHARED_ROUTERS` does (CI checks both).
 
 Apps bound to their URL need it on the NAS too: `VAULTWARDEN_DOMAIN` (`security`, and `infrastructure` for the
 dashboard's link), `APP_URL`, `SESSION_DOMAIN`, `SANCTUM_STATEFUL_DOMAINS` and `TRUSTED_PROXIES` (`opusline`), and
@@ -179,8 +180,8 @@ it talks to no other homeserver, and none can talk to it. Nothing is hosted for 
 ## velobook
 
 The `velobook` stack books the best electric vélôToulouse bike and holds it until a chosen time
-([Androlax2/velobook-toulouse](https://github.com/Androlax2/velobook-toulouse), private). It is on the
-`tailnet` entrypoint only, at `https://velobook.<domain>`: phones only share their location over HTTPS, so
+([Androlax2/velobook-toulouse](https://github.com/Androlax2/velobook-toulouse), private). It is at
+`https://velobook.<domain>`, on the `tailnet` and `shared` entrypoints (see sharing below): phones only share their location over HTTPS, so
 "book nearest" needs that address, not the LAN one.
 
 - **Its image is private.** Once, on the NAS, as root (the deploy pulls as root), log in to GHCR with a
@@ -200,20 +201,24 @@ The `velobook` stack books the best electric vélôToulouse bike and holds it un
   the page. There is no other login, so a friend first needs Tailscale and `jeancloud-proxy` shared with
   them (see [Remote access](#remote-access)).
 - **Sharing it with a friend, and only it.** Sharing `jeancloud-proxy` would give them every tailnet route,
-  all on its one port 443. Instead, `velobook-tailscale` is a tailnet node of its own (`velobook`), which
-  only serves velobook, over HTTPS with a `ts.net` certificate (Tailscale Serve,
-  [`config/velobook-tailscale/serve.json`](config/velobook-tailscale/serve.json)). In the admin console:
-  1. Before the deploy that adds it: DNS, keep MagicDNS on and turn on **HTTPS Certificates**. Then
-     Settings > Keys, generate an auth key and put it in `sudo scripts/edit_env.sh velobook`
-     (`TS_AUTHKEY`). The deploy stops while that key is missing from the file.
-  2. Once `velobook` shows in Machines, in its menu: **Disable key expiry**, then **Share…**, with the
-     friend's email. They accept the invite in their Tailscale app.
-  3. They open `https://velobook.<tailnet>.ts.net` (the full name is in the machine's details), create a
-     profile with a PIN and log into their own vélôToulouse account.
+  since they all sit on its one port 443. Instead, `velobook-tailscale` (`proxy` stack) is a tailnet node of its
+  own, `velobook`, in userspace mode. Tailscale Serve passes its port 443 through, still encrypted
+  ([`config/velobook-tailscale/serve.json`](config/velobook-tailscale/serve.json)), to Traefik's `shared`
+  entrypoint, which routes velobook and nothing else: asking it for `vault.<domain>` gets a 404. The `velobook`
+  DNS record points to that node, so `https://velobook.<domain>` works for the friend with the usual wildcard
+  certificate, and for you too (through the same node).
+  1. Before the deploy that adds it: Tailscale admin console, Settings > Keys, generate an auth key, and put it
+     in `sudo scripts/edit_env.sh proxy` (`VELOBOOK_TS_AUTHKEY`). The deploy stops on the proxy stack while
+     that key is missing from the file.
+  2. Once `velobook` shows in Machines: in its menu, **Disable key expiry**, then copy its tailnet address
+     (100.x).
+  3. Cloudflare: an `A` record `velobook` → that address, DNS only. It wins over the wildcard, which points to
+     `jeancloud-proxy`.
+  4. In the `velobook` machine's menu, **Share…** with the friend's email. They accept the invite in their
+     Tailscale app, open `https://velobook.<domain>`, create a profile with a PIN and log into their own
+     vélôToulouse account.
 
-  The friend sees this one machine in their Tailscale, nothing else of the tailnet. The certificate puts
-  `velobook.<tailnet>.ts.net` in the public Certificate Transparency logs, like any HTTPS name. You keep
-  using `https://velobook.<domain>`: both reach the same app and data.
+  The friend sees this one machine in their Tailscale, nothing else of the tailnet.
 - **Data:** `${DOCKERCONFDIR}/velobook`, owned by uid 65532 (the image's user), plain JSON files: profiles,
   vélôToulouse logins, PIN hashes, keys. restic backs it up with the rest of the app data.
 

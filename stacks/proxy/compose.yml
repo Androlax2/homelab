@@ -75,6 +75,11 @@ services:
       # (a video to Immich, a large file to Filebrowser).
       - --entrypoints.tailnet.transport.respondingtimeouts.readtimeout=600s
       - --entrypoints.tailnet.transport.respondingtimeouts.idletimeout=600s
+      # `shared`: only what velobook-tailscale forwards, i.e. what the friends it is shared with
+      # reach. Never published on the NAS. scripts/check_proxy_routes.sh limits its routers.
+      - --entrypoints.shared.address=:8446
+      - --entrypoints.shared.http.tls.certresolver=letsencrypt
+      - --entrypoints.shared.http.tls.domains[0].main=*.${PROXY_DOMAIN}
       - --entrypoints.public.address=:8444
       - --entrypoints.public.http.tls.certresolver=letsencrypt
       - --entrypoints.public.http.tls.domains[0].main=*.${PROXY_DOMAIN}
@@ -95,6 +100,39 @@ services:
     volumes:
       - ../../config/traefik:/etc/traefik/dynamic:ro
       - ${DOCKERCONFDIR}/traefik:/acme:rw
+
+  # A tailnet node of its own (`velobook`), to share with friends: sharing jeancloud-proxy would
+  # open every tailnet route to them. Tailscale Serve passes its port 443 through, still
+  # encrypted, to Traefik's `shared` entrypoint, which only routes velobook: a request there for
+  # any other name is a 404. The `velobook` DNS record points to this node's tailnet address, so
+  # velobook.<domain> works for them with the usual wildcard certificate.
+  # Userspace networking: no tun device, no NET_ADMIN; it answers only on 443.
+  velobook-tailscale:
+    container_name: velobook-tailscale
+    image: tailscale/tailscale:v1.104.1
+    hostname: velobook
+    labels:
+      # Backup: the node's identity is a plain file.
+      homelab.backup: "none"
+      glance.name: "velobook Tailscale"
+      glance.icon: "sh:tailscale"
+      glance.description: "Node shared with friends, velobook only"
+      glance.category: "infrastructure"
+      glance.parent: "traefik"
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      - traefik
+    environment:
+      - TZ=${TZ}
+      - TS_AUTHKEY=${VELOBOOK_TS_AUTHKEY}
+      - TS_HOSTNAME=velobook
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ${DOCKERCONFDIR}/velobook-tailscale:/var/lib/tailscale:rw
+      - ../../config/velobook-tailscale:/config:ro
 
   # DNS that blocks ads and trackers. In the tailscale container's network namespace, like
   # Traefik: the tailnet can then use this node's address as its DNS server (Tailscale admin

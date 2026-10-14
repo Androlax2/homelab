@@ -1,6 +1,7 @@
 # Every router names its entrypoint, inline: `tailnet` is reachable from the tailnet only,
-# `public` from the internet. scripts/check_proxy_routes.sh (CI) allows `public` only for the
-# routers it lists.
+# `public` from the internet, `shared` from the friends velobook-tailscale is shared with.
+# scripts/check_proxy_routes.sh (CI) allows `public` only for the routers it lists in
+# PUBLIC_ROUTERS, and `shared` only for the ones in SHARED_ROUTERS.
 #
 # Backends are the ports the stacks already publish on the NAS, or the app's own port for
 # the containers on the host network.
@@ -87,7 +88,7 @@ http:
       rule: 'Host(`adguard.{{ env "PROXY_DOMAIN" }}`)'
       service: adguard
     velobook:
-      entryPoints: [tailnet]
+      entryPoints: [tailnet, shared]
       rule: 'Host(`velobook.{{ env "PROXY_DOMAIN" }}`)'
       service: velobook
 
