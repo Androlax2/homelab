@@ -18,7 +18,7 @@ x-logging: &logging
 services:
   velobook:
     container_name: velobook
-    image: ghcr.io/androlax2/velobook-toulouse:0.3.0
+    image: ghcr.io/androlax2/velobook-toulouse:0.4.0
     labels:
       # Backup: plain JSON files (profiles, vélôToulouse logins, PIN hashes, keys)
       # that restic copies as they are.
