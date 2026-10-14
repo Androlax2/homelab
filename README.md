@@ -193,8 +193,9 @@ The `velobook` stack books the best electric vélôToulouse bike and holds it un
   Renovate proposes it here like any other image, if it can read the private package. If the
   Dependency Dashboard shows a lookup error for it, bump the version in
   [`stacks/velobook/compose.yml`](stacks/velobook/compose.yml) by hand.
-- **Keys:** `sudo scripts/edit_env.sh velobook` (`VELO_APP_KEY`, `VELO_JCDECAUX_KEY`), or leave them empty and
-  set them in velobook's Settings page.
+- **Keys:** `sudo scripts/edit_env.sh velobook` (`VELO_APP_KEY`, `VELO_JCDECAUX_KEY`). The file must exist,
+  like every stack's, or the deploy stops on it; the values may stay empty and be set in velobook's Settings
+  page instead.
 - **People:** each person creates a profile with a PIN and logs into their own vélôToulouse account from
   the page. There is no other login, so a friend first needs Tailscale and `jeancloud-proxy` shared with
   them (see [Remote access](#remote-access)).
