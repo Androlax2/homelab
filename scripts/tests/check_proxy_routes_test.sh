@@ -55,6 +55,7 @@ router() {
 }
 
 PUBLIC_REFUSED="on the public entrypoint (allowed only for: plex jellyfin)"
+SHARED_REFUSED="on the shared entrypoint (allowed only for: velobook)"
 
 run_test "it passes private routers on tailnet and plex on public" \
     check_routes "http:\n  routers:\n$(router vault 'entryPoints: [tailnet]')$(router plex 'entryPoints: [public]')" \
@@ -74,6 +75,15 @@ run_test "it fails a TCP router on public that is not allowed there" \
 run_test "it fails a public router after an allowed one" \
     check_routes "http:\n  routers:\n$(router plex 'entryPoints: [public]')$(router vault 'entryPoints: [public]')" \
     fails "vault: $PUBLIC_REFUSED"
+run_test "it passes velobook on tailnet and shared" \
+    check_routes "http:\n  routers:\n$(router velobook 'entryPoints: [tailnet, shared]')" \
+    passes "OK    config/traefik/routes.yml"
+run_test "it fails a router on shared that is not allowed there" \
+    check_routes "http:\n  routers:\n$(router vault 'entryPoints: [tailnet, shared]')" \
+    fails "vault: $SHARED_REFUSED"
+run_test "it fails a public router on shared" \
+    check_routes "http:\n  routers:\n$(router plex 'entryPoints: [public, shared]')" \
+    fails "plex: $SHARED_REFUSED"
 run_test "it fails a router without an entryPoints line" \
     check_routes "http:\n  routers:\n$(router vault '')" \
     fails "vault: no entryPoints line"

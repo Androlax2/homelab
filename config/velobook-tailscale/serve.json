@@ -1,0 +1,5 @@
+{
+  "TCP": {
+    "443": { "TCPForward": "tailscale:8446" }
+  }
+}

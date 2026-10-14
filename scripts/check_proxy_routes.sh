@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # Validates config/traefik/routes.yml: Traefik's `public` entrypoint is reachable from the
-# internet, `tailnet` from the tailnet only.
+# internet, `tailnet` from the tailnet only, and `shared` from whoever a shared node was given to.
 #   - only the routers in PUBLIC_ROUTERS may be on `public`
+#   - only the routers in SHARED_ROUTERS may be on `shared`
 #   - every router names its entrypoints, as an inline list, so this check can read them
 #
 # Usage: bash scripts/check_proxy_routes.sh
@@ -12,11 +13,14 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROUTES_FILE="config/traefik/routes.yml"
 
 PUBLIC_ROUTERS="plex jellyfin"
+# Reached through the velobook-tailscale node (proxy stack), which is shared with friends: every
+# router here is open to them.
+SHARED_ROUTERS="velobook"
 
 # Prints one line per router that breaks the rules above. Reads the file by indentation:
 # `routers:` under a top-level key (http, tcp, udp), router names below it, their keys below those.
 route_violations() {
-    awk -v allowed="$PUBLIC_ROUTERS" '
+    awk -v allowed="$PUBLIC_ROUTERS" -v shared_allowed="$SHARED_ROUTERS" '
         function close_router() {
             if (router != "" && !has_entrypoints) {
                 print router ": no entryPoints line"
@@ -26,6 +30,8 @@ route_violations() {
         BEGIN {
             split(allowed, allowed_names, " ")
             for (i in allowed_names) is_allowed[allowed_names[i]] = 1
+            split(shared_allowed, shared_names, " ")
+            for (i in shared_names) is_shared_allowed[shared_names[i]] = 1
         }
         /^[[:space:]]*(#|$)/ { next }
         /^  routers:[[:space:]]*$/ { close_router(); in_routers = 1; next }
@@ -56,6 +62,9 @@ route_violations() {
             for (i = 1; i <= entrypoint_count; i++) {
                 if (entrypoint_names[i] == "public" && !(router in is_allowed)) {
                     print router ": on the public entrypoint (allowed only for: " allowed ")"
+                }
+                if (entrypoint_names[i] == "shared" && !(router in is_shared_allowed)) {
+                    print router ": on the shared entrypoint (allowed only for: " shared_allowed ")"
                 }
             }
         }
