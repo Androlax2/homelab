@@ -191,8 +191,10 @@ The `velobook` stack books the best electric vélôToulouse bike and holds it un
   ```
   The login is saved in `/root/.docker/config.json`. Without it, the deploy fails to pull the image.
 - **Releases:** a `vX.Y.Z` tag in the velobook repo publishes `ghcr.io/androlax2/velobook-toulouse:X.Y.Z`.
-  Renovate proposes it here like any other image, if it can read the private package. If the
-  Dependency Dashboard shows a lookup error for it, bump the version in
+  Renovate proposes it here like any other image: it reads the private package with a `read:packages`
+  token stored as the `GHCR_TOKEN` secret in the Mend Renovate app (`hostRules` in
+  [`renovate.json`](renovate.json)). If the Dependency Dashboard shows a lookup error for it, the secret
+  is missing or the token expired: replace it, or bump the version in
   [`stacks/velobook/compose.yml`](stacks/velobook/compose.yml) by hand.
 - **Keys:** `sudo scripts/edit_env.sh velobook` (`VELO_APP_KEY`, `VELO_JCDECAUX_KEY`). The file must exist,
   like every stack's, or the deploy stops on it; the values may stay empty and be set in velobook's Settings
