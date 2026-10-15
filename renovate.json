@@ -2,6 +2,15 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "automerge": true,
+  "hostRules": [
+    {
+      "description": "velobook is a private GHCR image: read it with a read:packages token stored as a Mend secret",
+      "hostType": "docker",
+      "matchHost": "ghcr.io",
+      "username": "Androlax2",
+      "password": "{{ secrets.GHCR_TOKEN }}"
+    }
+  ],
   "packageRules": [
     {
       "description": "opusline-web and opusline-api must run the same version: one pull request for both",
