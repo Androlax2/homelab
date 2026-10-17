@@ -4,7 +4,7 @@
   "automerge": true,
   "hostRules": [
     {
-      "description": "velobook is a private GHCR image: read it with a read:packages token stored as a Mend secret",
+      "description": "velobook and Runway are private GHCR images: read them with a read:packages token stored as a Mend secret",
       "hostType": "docker",
       "matchHost": "ghcr.io",
       "username": "Androlax2",

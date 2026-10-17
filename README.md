@@ -87,7 +87,7 @@ one wildcard certificate, obtained through Cloudflare's DNS (no port to open for
 
 | Entrypoint | Reachable from | Routes |
 |---|---|---|
-| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `matrix`, `adguard`, `velobook` |
+| `tailnet` (443) | devices on the tailnet only | `vault` (Vaultwarden), `opusline`, and every other app under its own name: `glance`, `filebrowser`, `dozzle`, `beszel`, `gatus`, `immich`, `seerr`, `sonarr`, `radarr`, `prowlarr`, `qbittorrent`, `tautulli`, `maintainerr`, `notifiarr`, `matrix`, `adguard`, `velobook`, `runway` |
 | `public` (8444, published on the NAS) | the internet, once the router forwards WAN 443 to NAS 8444 | `plex`, `jellyfin` |
 | `shared` (8446, not published) | the friends the `velobook` node is shared with, through that node | `velobook` |
 
@@ -118,7 +118,7 @@ record for a public one. A router goes on `public` only if `PUBLIC_ROUTERS` in `
 lists it, and on `shared` only if `SHARED_ROUTERS` does (CI checks both).
 
 Apps bound to their URL need it on the NAS too: `VAULTWARDEN_DOMAIN` (`security`, and `infrastructure` for the
-dashboard's link), `APP_URL`, `SESSION_DOMAIN`, `SANCTUM_STATEFUL_DOMAINS` and `TRUSTED_PROXIES` (`opusline`), and
+dashboard's link), `APP_URL`, `SESSION_DOMAIN`, `SANCTUM_STATEFUL_DOMAINS` and `TRUSTED_PROXIES` (`opusline`), `APP_URL` and `TRUSTED_PROXIES` (`runway`), and
 in Plex, Settings > Network > Custom server access URLs (`https://plex.<domain>:443`).
 
 ## DNS
@@ -224,6 +224,46 @@ The `velobook` stack books the best electric vélôToulouse bike and holds it un
 - **Data:** `${DOCKERCONFDIR}/velobook`, owned by uid 65532 (the image's user), plain JSON files: profiles,
   vélôToulouse logins, PIN hashes, keys. restic backs it up with the rest of the app data.
 
+## Runway
+
+The `runway` stack is my treasury dashboard ([Androlax2/runway](https://github.com/Androlax2/runway), private):
+Laravel with Octane, SQLite, installed on the iPhone as a PWA with push notifications. It is at
+`https://runway.<domain>`, on the `tailnet` entrypoint only. Three containers from one image: `runway` (the web
+app, which migrates the database when it starts), `runway-scheduler` (the bank sync, daily at 06:00) and
+`runway-queue` (the sync job, mails, pushes). The workers start once `runway` is healthy.
+
+- **Its image is private**, like velobook's, and pulled with the same `docker login ghcr.io` done as root (see
+  [velobook](#velobook)).
+- **Releases:** a `vX.Y.Z` tag in the runway repo publishes `ghcr.io/androlax2/runway:vX.Y.Z`. Renovate proposes it
+  here with the same `GHCR_TOKEN`; a lookup error on the Dependency Dashboard means the same as for velobook.
+- **Keys:** `sudo scripts/edit_env.sh runway`. `APP_KEY` and the VAPID pair come from the image itself, once:
+  ```sh
+  sudo docker run --rm ghcr.io/androlax2/runway:<version> php artisan key:generate --show   # APP_KEY
+  sudo docker run --rm ghcr.io/androlax2/runway:<version> php artisan push:vapid            # VAPID_*
+  ```
+  Keep `APP_KEY` in Vaultwarden. A new VAPID pair drops every push subscription. The Opusline URL and token and
+  the Anthropic API key are entered in Runway's Réglages page. Runway reaches Opusline on its LAN address,
+  `http://<LAN_IP>:<OPUSLINE_PORT>`: the container is not on the tailnet, so `opusline.<domain>` is out of its
+  reach.
+- **`TRUSTED_PROXIES`:** Traefik reaches the app on its LAN port, so a request arrives from a Docker bridge
+  address (the proxy's network, or the gateway of Runway's own), which can change when a network is recreated.
+  `172.16.0.0/12` is the range Docker takes them from. Laravel only believes Traefik's `X-Forwarded-Proto: https`
+  from a trusted address: from any other, it takes the request for plain HTTP and builds `http://` links. Check
+  that both networks are in that range:
+  `sudo docker network inspect proxy_default runway_default --format '{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}}'`.
+- **Enable Banking:** the application's ID goes in `ENABLE_BANKING_APPLICATION_ID`, its private key in
+  `${DOCKERCONFDIR}/runway/secrets/enable-banking.pem`, readable by uid 1000 (the image's user) only:
+  ```sh
+  sudo install -m 400 -o 1000 -g 1000 <downloaded key> /volume1/docker/appdata/runway/secrets/enable-banking.pem
+  ```
+  Its redirect URL, in Enable Banking's control panel: `https://runway.<domain>/banks/callback`.
+- **The user:** `sudo docker exec -it runway php artisan users:create <email>` (it asks for a name, a password and
+  the name on the bank transfers). Two-factor is set up afterwards in Réglages.
+- **Data:** `${DOCKERCONFDIR}/runway`, owned by uid 1000: `database` (the SQLite file, the data that matters),
+  `storage` (files the app writes) and `secrets`. The `sqlite` label copies the database every night; restic
+  takes the copy, and the rest of the folder, the private key included, with the app data. The runway repo's own
+  `backup` container is not used here.
+
 ## Sonarr and Radarr settings
 
 Quality profiles and custom formats come from the [TRaSH Guides](https://trash-guides.info), applied by
@@ -270,7 +310,7 @@ Every service with a writable volume has a `homelab.backup` label. CI fails unti
 | Label | What `backup_databases.sh` does | Used by |
 |---|---|---|
 | `postgres` | `pg_dumpall` into `<container>.sql.gz`, kept only if the dump is complete | Immich, Opusline, Prowlarr, Matrix databases |
-| `sqlite` | copies every SQLite file in the container's `${DOCKERCONFDIR}` folders with SQLite's online backup, as the file's owner, under the same relative path, and checks each copy with `PRAGMA quick_check`; skips an app's own dated copies (`name-YYYY-MM-DD`) | Vaultwarden, Sonarr, Radarr, Tautulli, Seerr, Maintainerr, Jellyfin, Beszel |
+| `sqlite` | copies every SQLite file in the container's `${DOCKERCONFDIR}` folders with SQLite's online backup, as the file's owner, under the same relative path, and checks each copy with `PRAGMA quick_check`; skips an app's own dated copies (`name-YYYY-MM-DD`) | Vaultwarden, Sonarr, Radarr, Tautulli, Seerr, Maintainerr, Jellyfin, Beszel, Runway |
 | `sqlite-unchecked` | like `sqlite`, without the check: for databases only the app's own SQLite build can open fully; the log marks each copy `(not checked)` | Plex |
 | `bolt` | stops the container, archives its `${DOCKERCONFDIR}` folders into `<container>.tar.gz`, starts it again (seconds of downtime) | Filebrowser |
 | `none` | nothing: plain files restic copies as they are, or data not worth keeping; a comment beside the label says which | everything else with a writable volume |
@@ -455,8 +495,8 @@ Compose). CI runs them, the three checks and gitleaks on every push and pull req
 5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
 6. Backups: follow [Backups, Setup](#setup). Until a backup succeeds, the deploy reports it.
 7. Sonarr and Radarr settings: Task Scheduler, `docker start -a configarr` as root every day, email on failure.
-8. velobook: `sudo docker login ghcr.io` (see [velobook](#velobook)) before the first deploy, or its image
-   can't be pulled.
+8. velobook and Runway: `sudo docker login ghcr.io` (see [velobook](#velobook)) before the first deploy, or
+   their images can't be pulled.
 9. Remote access: see [Remote access](#remote-access). A restored `${DOCKERCONFDIR}/tailscale` keeps the node and
    its address; without it, set a new `TS_AUTHKEY` and point the `vault` and `opusline` DNS records to the new
    address.
