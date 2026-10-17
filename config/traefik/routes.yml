@@ -91,6 +91,10 @@ http:
       entryPoints: [tailnet, shared]
       rule: 'Host(`velobook.{{ env "PROXY_DOMAIN" }}`)'
       service: velobook
+    runway:
+      entryPoints: [tailnet]
+      rule: 'Host(`runway.{{ env "PROXY_DOMAIN" }}`)'
+      service: runway
 
   services:
     vaultwarden:
@@ -177,3 +181,7 @@ http:
       loadBalancer:
         servers:
           - url: 'http://{{ env "LAN_IP" }}:8770'
+    runway:
+      loadBalancer:
+        servers:
+          - url: 'http://{{ env "LAN_IP" }}:8780'

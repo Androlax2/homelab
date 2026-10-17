@@ -1,0 +1,87 @@
+# Runway: personal treasury dashboard (Laravel, Octane on FrankenPHP, SQLite), a PWA
+# installed on the iPhone. Built from the private repo Androlax2/runway; a vX.Y.Z tag
+# there publishes this image. Not its compose.prod.yaml: its `backup` container is left
+# out, the database is copied by scripts/backup_databases.sh (homelab.backup: sqlite).
+#
+# The image is private on GHCR: the NAS pulls it with the `docker login ghcr.io` done
+# once as root (README, velobook).
+#
+# Server-wide values (DOCKERCONFDIR, DOCKERLOGGING_*, TZ, PROXY_DOMAIN) come from
+# stacks/common.env, the app's keys from stacks/runway/.env.
+name: runway
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
+x-app: &app
+  image: ghcr.io/androlax2/runway:v0.1.0
+  restart: unless-stopped
+  logging: *logging
+  env_file: .env
+  environment:
+    TZ: ${TZ}
+  # The image runs as uid 1000: the operation that creates these folders gives them to that uid.
+  volumes:
+    - ${DOCKERCONFDIR}/runway/database:/app/database/sqlite
+    - ${DOCKERCONFDIR}/runway/storage:/app/storage/app
+    - ${DOCKERCONFDIR}/runway/secrets:/app/secrets:ro
+
+x-worker: &worker
+  <<: *app
+  # The web container migrates the database before it reports healthy.
+  depends_on:
+    runway:
+      condition: service_healthy
+  # The image's healthcheck curls Octane's /up, which only the web container serves.
+  healthcheck:
+    disable: true
+
+services:
+  runway:
+    <<: *app
+    container_name: runway
+    labels:
+      # Backup: database.sqlite, the data that matters. The workers use the same file.
+      homelab.backup: "sqlite"
+      glance.name: "Runway"
+      glance.id: "runway"
+      glance.icon: "mdi:finance"
+      glance.description: "Treasury dashboard"
+      glance.category: "productivity"
+      glance.url: "https://runway.${PROXY_DOMAIN}"
+    environment:
+      TZ: ${TZ}
+      # Creates the SQLite file when it is missing. Only here, so one container migrates.
+      RUN_MIGRATIONS: "1"
+    # The healthcheck is in the image (curl /up).
+    ports:
+      - "8780:8000"
+
+  runway-scheduler:
+    <<: *worker
+    container_name: runway-scheduler
+    labels:
+      # Backup: the database is copied through the runway container, which mounts the same file.
+      homelab.backup: "none"
+      glance.name: "Runway Scheduler"
+      glance.icon: "sh:laravel"
+      glance.description: "Daily bank sync at 06:00"
+      glance.category: "productivity"
+      glance.parent: "runway"
+    command: ["php", "artisan", "schedule:work"]
+
+  runway-queue:
+    <<: *worker
+    container_name: runway-queue
+    labels:
+      # Backup: the database is copied through the runway container, which mounts the same file.
+      homelab.backup: "none"
+      glance.name: "Runway Queue"
+      glance.icon: "sh:laravel"
+      glance.description: "Bank sync, mails, pushes"
+      glance.category: "productivity"
+      glance.parent: "runway"
+    command: ["php", "artisan", "queue:work", "--tries=3"]
