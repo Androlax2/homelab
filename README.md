@@ -70,7 +70,7 @@ within 5 minutes. Both Opusline images update together. The Dependency Dashboard
   (`{"matchPackageNames": ["<image>"], "allowedVersions": "<x.y.z"}`), or Renovate merges it again.
 - Each update leaves the previous image behind. Docker stores every image layer as a btrfs subvolume, and DSM's
   quota accounting slows the whole volume as they add up (164 images had piled up by October 2026), so a weekly
-  task removes the images no container uses: Task Scheduler, `docker image prune -a -f` as root, Sundays at 14:00.
+  task removes the images no container uses: Task Scheduler, `/usr/local/bin/docker image prune -a -f` as root, Sundays at 14:00.
   An image only used by `compose run` (the backup's restic) is pulled again on its next run.
 
 ## One-time operations
@@ -282,7 +282,7 @@ to keep in Sonarr and Radarr; their custom formats and scores are the guides' ow
 The `configarr` container runs once and exits:
 
 - when the `media` stack is deployed, and when the deploy restarts it after a change to `config/configarr/`;
-- every day from DSM Task Scheduler (`docker start -a configarr`), which brings in the guides' updates. A failed
+- every day from DSM Task Scheduler (`/usr/local/bin/docker start -a configarr`), which brings in the guides' updates. A failed
   run exits non-zero, so DSM emails its output.
 
 What it does to the apps:
@@ -518,7 +518,7 @@ Compose). CI runs them, the three checks and gitleaks on every push and pull req
    through them, run `sudo scripts/run_operations.sh --mark-all-done` first.
 5. Task Scheduler: `bash /volume1/docker/homelab/scripts/deploy.sh` as root every 5 minutes, email on failure.
 6. Backups: follow [Backups, Setup](#setup). Until a backup succeeds, the deploy reports it.
-7. Sonarr and Radarr settings: Task Scheduler, `docker start -a configarr` as root every day, email on failure.
+7. Sonarr and Radarr settings: Task Scheduler, `/usr/local/bin/docker start -a configarr` as root every day, email on failure.
 8. velobook and Runway: `sudo docker login ghcr.io` (see [velobook](#velobook)) before the first deploy, or
    their images can't be pulled.
 9. Remote access: see [Remote access](#remote-access). A restored `${DOCKERCONFDIR}/tailscale` keeps the node and
@@ -526,7 +526,7 @@ Compose). CI runs them, the three checks and gitleaks on every push and pull req
    address.
 10. Beszel: [Monitoring setup](#monitoring-setup), step 4. A restored `${DOCKERCONFDIR}/beszel` keeps the account,
    the key and the token.
-11. Old images: Task Scheduler, `docker image prune -a -f` as root every Sunday at 14:00 (see [Updates](#updates)).
+11. Old images: Task Scheduler, `/usr/local/bin/docker image prune -a -f` as root every Sunday at 14:00 (see [Updates](#updates)).
 
 ## Security
 
