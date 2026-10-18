@@ -142,7 +142,10 @@ services:
     logging: *logging
     network_mode: host
     # Host network: without listen_addresses, Postgres would take connections from the whole LAN.
-    command: -p 5433 -c listen_addresses=localhost
+    # synchronous_commit=off: a commit doesn't wait for the disk, which takes ~0.4 s on Volume 1's
+    # btrfs (README, Storage performance). A crash can lose the last fraction of a second, never
+    # corrupt it.
+    command: -p 5433 -c listen_addresses=localhost -c synchronous_commit=off
     labels:
       homelab.backup: "postgres"
       glance.name: "Prowlarr PostgreSQL"

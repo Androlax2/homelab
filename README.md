@@ -403,6 +403,21 @@ Every restic command runs through the stack, e.g. `sudo scripts/compose.sh backu
 - Whole NAS lost: on any machine with Docker, run `restic/restic` with the same `.ssh` folder and `RESTIC_PASSWORD`
   (from outside the NAS) and restore `/source` first; this checkout and its `.env` files come back with it.
 
+## Storage performance
+
+Everything runs on two 5400 rpm disks in RAID 1, and the DS224+ has no M.2 slot for an SSD. Measured in
+October 2026, a write that waits for the disk (`dd … oflag=dsync`, 4 KB) takes about 44 ms on DSM's ext4 system
+partition but about 370 ms on Volume 1, whose btrfs (kernel 4.4, quota accounting over every Docker layer) adds the
+rest. What the stacks do about it:
+
+- Postgres doesn't wait for the disk on commit (`synchronous_commit=off`) in `immich_postgres`, `synapse-db` and
+  `prowlarr-postgres`: a crash can lose the last fraction of a second of commits, never corrupt the database.
+  `opusline-db` keeps waiting: it holds the invoices.
+- SQLite apps run in WAL mode where they allow it (Runway), which waits for the disk only at checkpoints.
+- Only the healthchecks a start waits on run (see [Rules the scripts rely on](#rules-the-scripts-rely-on)), and old
+  images are pruned weekly (see [Updates](#updates)).
+- Volume 1 doesn't record file access times (Storage Manager, the volume's settings).
+
 ## Monitoring
 
 Four tools, each for a different question. The first three run in the `infrastructure` stack and are served on the
