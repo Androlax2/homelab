@@ -173,6 +173,9 @@ services:
       glance.parent: "traefik"
     restart: unless-stopped
     logging: *logging
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     environment:
       TZ: ${TZ}
       # Its web UI has no use here: no port is published.

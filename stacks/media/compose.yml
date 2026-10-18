@@ -19,6 +19,9 @@ services:
       glance.category: "media"
       glance.url: "https://maintainerr.${PROXY_DOMAIN}"
     logging: *logging
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     environment:
       - TZ=${TZ}
     volumes:
@@ -213,6 +216,9 @@ services:
       glance.category: "media"
       glance.url: "https://plex.${PROXY_DOMAIN}"
     logging: *logging
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     environment:
       - TZ=${TZ}
       - PLEX_UID=${PUID}
@@ -240,6 +246,9 @@ services:
       glance.category: "media"
       glance.url: "https://jellyfin.${PROXY_DOMAIN}"
     logging: *logging
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     environment:
       - TZ=${TZ}
     ports:

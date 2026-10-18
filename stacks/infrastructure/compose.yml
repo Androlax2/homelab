@@ -84,6 +84,9 @@ services:
       glance.url: "https://filebrowser.${PROXY_DOMAIN}"
     restart: unless-stopped
     logging: *logging
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     ports:
       - "8095:8080"
     volumes:

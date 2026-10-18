@@ -9,6 +9,8 @@ set -euo pipefail
 #     the Docker socket: whoever holds it is root on the server
 #   - every service with a writable volume has a homelab.backup label saying how
 #     scripts/backup_databases.sh backs it up, so a new app's database can't be forgotten
+#   - no healthcheck runs more often than every 30 seconds: Docker rewrites the container's
+#     state files on the disks after every check
 #
 # Usage: bash scripts/check_stacks.sh
 
@@ -55,6 +57,19 @@ backup_label_violations() {
           else empty end'
 }
 
+# Prints one line per service whose healthcheck interval, as compose prints it ("10s",
+# "1m30s"), is under 30 seconds. An interval left out is Docker's default, 30 seconds.
+healthcheck_violations() {
+    jq -r '
+        def seconds: [scan("([0-9.]+)(h|ms|m|s)")]
+            | map((.[0] | tonumber) * {"h": 3600, "m": 60, "s": 1, "ms": 0.001}[.[1]])
+            | add;
+        .services | to_entries[]
+        | select(.value.healthcheck.disable != true and .value.healthcheck.interval != null)
+        | select((.value.healthcheck.interval | seconds) < 30)
+        | "\(.key): healthcheck every \(.value.healthcheck.interval), under 30s"'
+}
+
 failed_stacks=0
 for compose_file in "$REPO_DIR"/stacks/*/compose.yml; do
     stack_dir=$(dirname "$compose_file")
@@ -70,6 +85,7 @@ for compose_file in "$REPO_DIR"/stacks/*/compose.yml; do
             grep 'variable is not set' "$warnings_file" || true
             privilege_violations <<<"$config_json"
             backup_label_violations <<<"$config_json"
+            healthcheck_violations <<<"$config_json"
         })
     else
         problems=$(cat "$warnings_file")

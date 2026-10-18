@@ -43,6 +43,10 @@ The real `stacks/common.env` and `stacks/<stack>/.env` exist only on the NAS (gi
   `scripts/check_stacks.sh`). What needs Docker reads it through that proxy.
 - Every service with a writable volume has a `homelab.backup` label saying how its data is backed up (CI checks it;
   see [Backups](#backups)).
+- A service keeps a healthcheck only when a start waits on it (`depends_on` with `condition: service_healthy`), and
+  checks every 30 seconds or less often (CI checks the interval). Docker rewrites the container's state files on the
+  disks after every check, which slows every other write on the volume. The others, the images' own checks included,
+  are turned off with `healthcheck: disable: true`: Gatus watches the apps.
 
 ## Settings and secrets
 
