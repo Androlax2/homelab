@@ -47,6 +47,9 @@ services:
       glance.category: "photos"
       glance.parent: "immich"
     image: docker.io/valkey/valkey:8-bookworm@sha256:fea8b3e67b15729d4bb70589eb03367bab9ad1ee89c876f54327fc7c6e618571
+    # Nothing saved to disk: its snapshots went to /data inside the container, lost on every
+    # recreation anyway, and each one waited for the disk (README, Storage performance).
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
     environment:
       - TZ=${TZ}
     logging: *logging

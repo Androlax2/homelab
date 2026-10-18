@@ -5,9 +5,10 @@
 # The ${...} values come from the gatus service's environment
 # (stacks/infrastructure/compose.yml).
 
+# In memory: the uptime history is not worth keeping, and a SQLite file written every minute waited
+# for the disk each time (README, Storage performance). A restart starts the history over.
 storage:
-  type: sqlite
-  path: /data/data.db
+  type: memory
 
 alerting:
   email:

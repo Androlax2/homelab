@@ -152,7 +152,10 @@ services:
       glance.parent: "opusline"
     restart: unless-stopped
     logging: *logging
-    command: ["redis-server", "--appendonly", "yes"]
+    # appendfsync no: the kernel writes the log out every ~30 s, instead of Redis waiting for the
+    # disk every second (README, Storage performance). A crash can lose the last ~30 s of queued
+    # jobs and sessions.
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "no"]
     volumes:
       - ${DOCKERCONFDIR}/opusline/redis:/data
     healthcheck:
