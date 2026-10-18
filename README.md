@@ -68,6 +68,10 @@ within 5 minutes. Both Opusline images update together. The Dependency Dashboard
 - CI checks the configuration, not the app: a broken release still deploys.
 - To roll back, `git revert`, and in the same commit block the version in `renovate.json`
   (`{"matchPackageNames": ["<image>"], "allowedVersions": "<x.y.z"}`), or Renovate merges it again.
+- Each update leaves the previous image behind. Docker stores every image layer as a btrfs subvolume, and DSM's
+  quota accounting slows the whole volume as they add up (164 images had piled up by October 2026), so a weekly
+  task removes the images no container uses: Task Scheduler, `docker image prune -a -f` as root, Sundays at 14:00.
+  An image only used by `compose run` (the backup's restic) is pulled again on its next run.
 
 ## One-time operations
 
@@ -507,6 +511,7 @@ Compose). CI runs them, the three checks and gitleaks on every push and pull req
    address.
 10. Beszel: [Monitoring setup](#monitoring-setup), step 4. A restored `${DOCKERCONFDIR}/beszel` keeps the account,
    the key and the token.
+11. Old images: Task Scheduler, `docker image prune -a -f` as root every Sunday at 14:00 (see [Updates](#updates)).
 
 ## Security
 

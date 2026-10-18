@@ -228,6 +228,10 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ${DOCKERCONFDIR}/plex:/config:rw
       - ${DOCKERSTORAGEDIR}/media:/data/media:rw
+    # The transcoder's temporary files, in memory: the image declares /transcode a volume, which
+    # put them on the HDDs every other app waits on. Plex's own setting already points there.
+    tmpfs:
+      - /transcode:size=4g,uid=${PUID},gid=${PGID}
     # Intel Quick Sync hardware transcoding (needs Plex Pass).
     devices:
       - /dev/dri:/dev/dri
