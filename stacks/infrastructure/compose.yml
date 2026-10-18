@@ -189,8 +189,6 @@ services:
     image: twinproduction/gatus:v5.37.0
     restart: unless-stopped
     labels:
-      # Backup: uptime history, not worth keeping.
-      homelab.backup: "none"
       glance.name: "Gatus"
       glance.icon: "sh:gatus"
       glance.description: "Uptime Checks"
@@ -211,6 +209,5 @@ services:
       - GATUS_SMTP_PASSWORD=${GATUS_SMTP_PASSWORD}
     volumes:
       - ../../config/gatus:/config:ro
-      - ${DOCKERCONFDIR}/gatus:/data
     ports:
       - "8099:8080"

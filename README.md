@@ -417,6 +417,9 @@ rest. What the stacks do about it:
 - Only the healthchecks a start waits on run (see [Rules the scripts rely on](#rules-the-scripts-rely-on)), and old
   images are pruned weekly (see [Updates](#updates)).
 - Volume 1 doesn't record file access times (Storage Manager, the volume's settings).
+- Redis and Valkey don't wait for the disk: `opusline-redis` leaves its log to the kernel (`--appendfsync no`,
+  the last ~30 s of jobs and sessions can be lost), `immich_redis` saves nothing. Gatus keeps its uptime history in
+  memory.
 
 ## Monitoring
 
