@@ -289,7 +289,7 @@ services:
   # Applies config/configarr/config.yml to Sonarr and Radarr: the TRaSH Guides quality profiles
   # listed there, with their custom formats and scores. It runs once and exits, three ways: when
   # this stack is deployed, when the deploy restarts it after a change to its config, and every
-  # day from DSM Task Scheduler (`docker start -a configarr`), which brings in the guides' updates.
+  # day from DSM Task Scheduler (`/usr/local/bin/docker start -a configarr`), which brings in the guides' updates.
   configarr:
     container_name: configarr
     image: ghcr.io/raydak-labs/configarr:1.35.0
