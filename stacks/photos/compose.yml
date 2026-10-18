@@ -21,6 +21,9 @@ services:
     volumes:
       - ${DOCKERSTORAGEDIR}/library:/data
     logging: *logging
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     environment:
       - TZ=${TZ}
       - DB_HOSTNAME=immich-database
@@ -47,8 +50,9 @@ services:
     environment:
       - TZ=${TZ}
     logging: *logging
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
     healthcheck:
-      test: redis-cli ping || exit 1
+      disable: true
     restart: unless-stopped
 
   immich-database:
@@ -72,4 +76,7 @@ services:
     volumes:
       - ${DOCKERCONFDIR}/immich/postgres:/var/lib/postgresql/data
     shm_size: 128mb
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     restart: unless-stopped

@@ -32,11 +32,9 @@ x-api-worker: &api-worker
   environment:
     TZ: ${TZ}
     OPUSLINE_SKIP_MIGRATIONS: "1"
+  # No healthcheck: nothing waits on the workers (README, Rules the scripts rely on).
   healthcheck:
-    test: ["CMD-SHELL", "pgrep -f artisan || exit 1"]
-    interval: 30s
-    timeout: 5s
-    retries: 3
+    disable: true
 
 services:
   opusline:
@@ -54,6 +52,9 @@ services:
       glance.url: "${APP_URL}"
     restart: unless-stopped
     logging: *logging
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     depends_on:
       opusline-api:
         condition: service_healthy
@@ -134,7 +135,7 @@ services:
     # the compose network needs this one.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-opusline} -d ${DB_DATABASE:-opusline}"]
-      interval: 10s
+      interval: 30s
       timeout: 5s
       retries: 10
 
@@ -156,6 +157,6 @@ services:
       - ${DOCKERCONFDIR}/opusline/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 30s
       timeout: 5s
       retries: 10

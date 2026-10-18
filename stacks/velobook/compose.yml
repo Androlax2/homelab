@@ -40,6 +40,8 @@ services:
     # this folder gives it to that uid.
     volumes:
       - ${DOCKERCONFDIR}/velobook:/data
-    # The healthcheck is in the image (velobook -healthcheck).
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     ports:
       - "8770:8080"

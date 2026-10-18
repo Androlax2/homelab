@@ -19,6 +19,9 @@ services:
       glance.url: "${VAULTWARDEN_DOMAIN}"
     restart: unless-stopped
     logging: *logging
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     environment:
       - TZ=${TZ}
       - DOMAIN=${VAULTWARDEN_DOMAIN}

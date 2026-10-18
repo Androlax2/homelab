@@ -28,6 +28,9 @@ services:
       glance.url: "https://matrix.${PROXY_DOMAIN}"
     restart: unless-stopped
     logging: *logging
+    # No healthcheck: nothing waits on it (README, Rules the scripts rely on).
+    healthcheck:
+      disable: true
     depends_on:
       synapse-db:
         condition: service_healthy
@@ -72,6 +75,6 @@ services:
     # the compose network needs this one.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
-      interval: 10s
+      interval: 30s
       timeout: 5s
       retries: 10

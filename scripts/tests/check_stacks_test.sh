@@ -70,5 +70,15 @@ run_test "it checks services behind a compose profile too" \
     check_stack app '    profiles: ["manual"]\n    volumes:\n      - /check/data:/data' fails "app: has a writable volume but no homelab.backup label"
 run_test "it fails an unknown homelab.backup kind" \
     check_stack app '    labels:\n      homelab.backup: "mongo"\n    volumes:\n      - /check/data:/data' fails 'app: unknown homelab.backup label "mongo"'
+run_test "it fails a healthcheck that runs more often than every 30 seconds" \
+    check_stack app '    healthcheck:\n      test: ["CMD", "true"]\n      interval: 10s' fails "app: healthcheck every 10s, under 30s"
+run_test "it passes a healthcheck that runs every 30 seconds" \
+    check_stack app '    healthcheck:\n      test: ["CMD", "true"]\n      interval: 30s' passes "OK    app"
+run_test "it reads an interval in minutes" \
+    check_stack app '    healthcheck:\n      test: ["CMD", "true"]\n      interval: 1m30s' passes "OK    app"
+run_test "it passes a healthcheck left at Docker's default interval" \
+    check_stack app '    healthcheck:\n      test: ["CMD", "true"]' passes "OK    app"
+run_test "it passes a disabled healthcheck" \
+    check_stack app '    healthcheck:\n      disable: true' passes "OK    app"
 
 finish_tests
