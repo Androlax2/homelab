@@ -247,9 +247,10 @@ app, which migrates the database when it starts), `runway-scheduler` (the bank s
   reach.
 - **`TRUSTED_PROXIES`:** Traefik reaches the app on its LAN port, so a request arrives from a Docker bridge
   address (the proxy's network, or the gateway of Runway's own), which can change when a network is recreated.
-  `172.16.0.0/12` is the range Docker takes them from. Laravel only believes Traefik's `X-Forwarded-Proto: https`
-  from a trusted address: from any other, it takes the request for plain HTTP and builds `http://` links. Check
-  that both networks are in that range:
+  Docker takes them from `172.16.0.0/12`, then `192.168.0.0/16` (this NAS's are in 192.168.x), so
+  `TRUSTED_PROXIES` lists both ranges. Laravel only believes Traefik's `X-Forwarded-Proto: https` from a
+  trusted address: from any other, it takes the request for plain HTTP and builds `http://` links. The LAN's
+  devices are trusted with it, which adds little: they reach port 8780 directly anyway. The networks' ranges:
   `sudo docker network inspect proxy_default runway_default --format '{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}}'`.
 - **Enable Banking:** the application's ID goes in `ENABLE_BANKING_APPLICATION_ID`, its private key in
   `${DOCKERCONFDIR}/runway/secrets/enable-banking.pem`, readable by uid 1000 (the image's user) only:
