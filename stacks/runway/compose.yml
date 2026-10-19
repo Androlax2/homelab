@@ -17,7 +17,7 @@ x-logging: &logging
     max-size: ${DOCKERLOGGING_MAXSIZE}
 
 x-app: &app
-  image: ghcr.io/androlax2/runway:v0.1.23
+  image: ghcr.io/androlax2/runway:v0.1.24
   restart: unless-stopped
   logging: *logging
   env_file: .env
