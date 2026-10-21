@@ -208,7 +208,7 @@ services:
 
   plex-server:
     container_name: plex-server
-    image: plexinc/pms-docker:1.43.4.10903-e5521bd8c
+    image: plexinc/pms-docker:1.43.5.11029-6bf8af3f0
     restart: unless-stopped
     labels:
       # Backup: Plex's databases need Plex's own SQLite (ICU collation, full-text tokenizer) to be checked.
