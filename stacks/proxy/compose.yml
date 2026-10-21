@@ -50,7 +50,7 @@ services:
 
   traefik:
     container_name: traefik
-    image: traefik:v3.7.15
+    image: traefik:v3.7.16
     labels:
       # Backup: the certificates are a plain file, and Let's Encrypt issues them again.
       homelab.backup: "none"
