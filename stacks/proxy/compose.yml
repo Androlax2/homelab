@@ -9,7 +9,7 @@ services:
   # the NAS's port 443 (DSM's), and only the tailnet can reach it.
   tailscale:
     container_name: tailscale
-    image: tailscale/tailscale:v1.104.1
+    image: tailscale/tailscale:v1.104.2
     hostname: jeancloud-proxy
     labels:
       # Backup: the node's identity is a plain file.
@@ -109,7 +109,7 @@ services:
   # Userspace networking: no tun device, no NET_ADMIN; it answers only on 443.
   velobook-tailscale:
     container_name: velobook-tailscale
-    image: tailscale/tailscale:v1.104.1
+    image: tailscale/tailscale:v1.104.2
     hostname: velobook
     labels:
       # Backup: the node's identity is a plain file.
