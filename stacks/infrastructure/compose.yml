@@ -132,7 +132,7 @@ services:
   # beszel-agent collects the numbers.
   beszel:
     container_name: beszel
-    image: henrygd/beszel:0.21.0
+    image: henrygd/beszel:0.21.1
     restart: unless-stopped
     labels:
       homelab.backup: "sqlite"
@@ -158,7 +158,7 @@ services:
   # NAS-wide network graph, which needs the host network.
   beszel-agent:
     container_name: beszel-agent
-    image: henrygd/beszel-agent:0.21.0
+    image: henrygd/beszel-agent:0.21.1
     restart: unless-stopped
     labels:
       # Backup: a fingerprint file, which the agent writes again.
