@@ -155,6 +155,51 @@ read with AdGuard Home's own login: `ADGUARD_USERNAME` and `ADGUARD_PASSWORD` in
 Its settings (filter lists, allowed names, the login) are edited in its interface, `https://adguard.<domain>`,
 and kept in `${DOCKERCONFDIR}/adguardhome/conf`, not in this repo: AdGuard Home rewrites that file.
 
+### Proxy recovery after reboot
+
+Docker can try to start `tailscale` before DSM provides `/dev/net/tun`. That start fails before the
+container's process runs, so `restart: unless-stopped` does not reliably retry it. AdGuard Home and Traefik
+share its network namespace and can stay stopped too; Compose's `depends_on` does not order Docker's reboot starts.
+
+[`scripts/recover_proxy.sh`](scripts/recover_proxy.sh) repairs this without Git, DNS, Compose or image pulls.
+It loads `/lib/modules/tun.ko` if the TUN device and module are both absent, then checks for a TUN character
+device and a responding Docker daemon up to 24 times, five seconds apart. It shares the deploy lock, so an
+overlapping deploy/recovery makes it skip that run. Missing prerequisites fail the run; a later scheduled run
+tries again. The retry count bounds polling, not the runtime of a hung Docker CLI call.
+
+Before starting anything, it verifies that all three named containers belong to their expected `proxy`
+Compose services. It starts only stopped/created containers, in order: `tailscale`, `adguardhome`, `traefik`,
+checking running state after each start. It never restarts a running container, recreates one, changes DNS or
+access rules, touches Tailscale state, or operates on other containers. It refuses unexpected lifecycle states
+such as paused or restarting. Running state alone does not prove Tailscale connectivity or working DNS/HTTPS.
+
+#### Safe rollout
+
+NAS execution, scheduler changes and reboot tests each need Theo's approval; repository changes do not
+install these tasks automatically.
+
+1. **Inspect first, without changing the NAS:** check the current TUN boot task and scheduled tasks, confirm
+   `/dev/net/tun` is a character device (`test -c /dev/net/tun`), and inspect `tailscale`, `adguardhome` and
+   `traefik` with `/usr/local/bin/docker inspect`. Confirm the Compose project/service labels, existing
+   Tailscale state bind mount, tailnet address and current running states. Keep any working TUN task until
+   replacement behavior has been verified; do not create a device manually or change its permissions.
+2. **After approval and delivery of this script**, run
+   `sudo bash /volume1/docker/homelab/scripts/recover_proxy.sh` once. With TUN ready and all three containers
+   running it should exit zero silently, with unchanged IDs, mounts and start times. Otherwise it can load a
+   kernel module and start stopped containers: this is not a dry run.
+3. **After scheduler-change approval**, configure two root DSM Task Scheduler tasks, both with email on failure:
+   a boot-triggered task and an independent task every five minutes, both running
+   `bash /volume1/docker/homelab/scripts/recover_proxy.sh`. A DSM boot task is not guaranteed to precede
+   Container Manager: it prepares TUN when it runs, and the periodic task repairs an early Docker failure.
+4. **Validate from a tailnet device:** query a known external name through `jeancloud-proxy`'s DNS address
+   (currently `100.119.252.94`), then fetch the configured Glance HTTPS URL with certificate verification.
+   Confirm the same tailnet address/identity and access restrictions. A container reporting running is not
+   enough. Simulating stopped containers or rebooting the NAS requires separate approval and a recovery window.
+5. **Maintenance/rollback:** disable both recovery tasks before intentionally stopping any of these containers,
+   or the next run will start them again. Disabling the tasks rolls back recovery automation; leave persisted
+   state, Compose configuration, restart policies and any pre-existing TUN task intact. Do not use Compose
+   recreation or delete Tailscale state as a recovery test.
+
 ### DNS setup
 
 A restored `${DOCKERCONFDIR}/adguardhome/conf` keeps the settings and the login. Without it, AdGuard Home
@@ -490,6 +535,7 @@ Once, on the NAS:
 | Script | Purpose |
 |---|---|
 | `deploy.sh` | the 5-minute deploy (DSM Task Scheduler, root) |
+| `recover_proxy.sh` | ordered recovery of existing proxy containers (DSM boot and every five minutes, root; see [safe rollout](#safe-rollout)) |
 | `compose.sh <stack> …` | `docker compose` with the stack's env files |
 | `edit_env.sh <stack>\|common` | edit settings and secrets on the NAS |
 | `new_operation.sh`, `run_operations.sh` | one-time operations (`--before`/`--after`, `--list`, `--mark-all-done`) |
@@ -530,6 +576,7 @@ Compose). CI runs them, the three checks and gitleaks on every push and pull req
 10. Beszel: [Monitoring setup](#monitoring-setup), step 4. A restored `${DOCKERCONFDIR}/beszel` keeps the account,
    the key and the token.
 11. Old images: Task Scheduler, `/usr/local/bin/docker image prune -a -f` as root every Sunday at 14:00 (see [Updates](#updates)).
+12. Proxy boot recovery: follow [safe rollout](#safe-rollout) before enabling its boot and periodic tasks.
 
 ## Security
 
@@ -564,9 +611,10 @@ The repo is public: secrets only in the NAS `.env` files, and security reviews a
 - **A route on `tailnet` hangs from one device**: that device is off Tailscale, or logged in with an account the
   proxy node is not shared with (`tailscale status` must list `jeancloud-proxy`).
 - **The `tailscale` container doesn't start (`/dev/net/tun`: no such file)**: DSM's tun module is not loaded,
-  and every proxy route is down with it. `sudo insmod /lib/modules/tun.ko`, then
-  `sudo scripts/compose.sh proxy up -d`. If it is missing after every reboot, load it from a Task Scheduler
-  boot task.
+  or the device was not ready when Docker started; every proxy route and the tailnet DNS resolver can be down
+  with it. Follow [proxy recovery after reboot](#proxy-recovery-after-reboot): after approval,
+  `sudo bash /volume1/docker/homelab/scripts/recover_proxy.sh` prepares TUN and starts only the three existing
+  containers in order. A boot-only TUN task does not repair an earlier failed Docker start.
 - **A route answers with DSM's page**: its backend port in `stacks/proxy/.env` is wrong.
 - **No device on the tailnet resolves any name**: AdGuard Home is down (`sudo scripts/compose.sh proxy ps`).
   Meanwhile, turn Tailscale off on the device, or remove the nameserver in the Tailscale admin console.
