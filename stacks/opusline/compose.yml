@@ -107,7 +107,7 @@ services:
       glance.description: "Document processing"
       glance.category: "productivity"
       glance.parent: "opusline"
-    command: ["php", "artisan", "queue:work", "--tries=3", "--max-time=3600"]
+    command: ["php", "artisan", "queue:work", "--tries=3"]
 
   opusline-db:
     container_name: opusline-db
