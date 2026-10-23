@@ -15,7 +15,7 @@ x-logging: &logging
 services:
   synapse:
     container_name: synapse
-    image: ghcr.io/element-hq/synapse:v1.163.0
+    image: ghcr.io/element-hq/synapse:v1.163.1
     labels:
       # Backup: media, the signing key and local.yaml are plain files. Messages are in synapse-db.
       homelab.backup: "none"
