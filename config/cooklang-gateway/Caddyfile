@@ -1,0 +1,18 @@
+# Password gate in front of CookCLI: it has no authentication of its own, and its API
+# can overwrite and delete recipe files. Nothing reaches the app without a login, so a
+# scanner that finds the public name gets a 401 rather than a delete endpoint.
+#
+# The credentials come from stacks/kitchen/.env (passed to the container as env_file).
+# {$VAR} is substituted before the Caddyfile is parsed, so the bcrypt hash arrives
+# verbatim, $ signs and all.
+:8080 {
+	basic_auth {
+		{$COOKLANG_USERNAME} {$COOKLANG_PASSWORD_HASH}
+	}
+
+	# cooklang publishes no port; this is the only route to it.
+	reverse_proxy cooklang:9080
+
+	encode gzip
+	log
+}
