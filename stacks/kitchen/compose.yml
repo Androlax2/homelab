@@ -1,0 +1,70 @@
+# Cooklang recipes on the NAS. The collection is a folder of .cook text files under
+# ${DOCKERSTORAGEDIR}/recipes — no database, so Hyper Backup already covers it.
+#
+# cook server has no authentication of any kind, and its API is read-write:
+# PUT and DELETE /api/recipes/<path> overwrite and delete recipe files. The only check
+# it makes is a same-origin test on the HTML "new recipe" form; the JSON API has none,
+# and its CORS policy is Access-Control-Allow-Origin: *. So CookCLI publishes no port:
+# the single way in is cooklang-gateway, which asks for a password first.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-file: ${DOCKERLOGGING_MAXFILE}
+    max-size: ${DOCKERLOGGING_MAXSIZE}
+
+services:
+
+  cooklang:
+    container_name: cooklang
+    image: ghcr.io/cooklang/cookcli:0.35.0
+    # The image's entrypoint exits unless /recipes is writable by this user (the server
+    # writes .shopping-list there, and saves recipes). The folder is created and given
+    # to PUID:PGID by a one-time operation, because Docker would create it as root.
+    user: "${PUID}:${PGID}"
+    restart: unless-stopped
+    logging: *logging
+    labels:
+      glance.name: "Cooklang"
+      glance.id: "cooklang"
+      glance.icon: "sh:cookcli"
+      glance.description: "Recipes"
+      glance.category: "productivity"
+      # The public URL, not http://${LAN_IP}:9080: nothing listens on the LAN address,
+      # every request goes through the gateway.
+      glance.url: "${COOKLANG_URL}"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${DOCKERSTORAGEDIR}/recipes:/recipes
+    # No command: the image already runs `cook server /recipes --host`. --host is what
+    # makes it listen on the container's network interface so the gateway can reach it;
+    # nothing else can, since no port is published. --no-cors is deliberately not passed:
+    # it would turn off the one same-origin check the app does have.
+    # No ports: reachable only from cooklang-gateway, over the stack's default network.
+
+  # The only thing listening on the host. Without it CookCLI would be an unauthenticated
+  # API that can delete your recipes, reachable by anyone who resolves the public name.
+  cooklang-gateway:
+    container_name: cooklang-gateway
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    logging: *logging
+    labels:
+      glance.name: "Cooklang Gateway"
+      glance.icon: "sh:caddy"
+      glance.description: "Password in front of Cooklang"
+      glance.category: "productivity"
+      glance.parent: "cooklang"
+    depends_on:
+      - cooklang
+    # env_file, not environment: the bcrypt hash contains $ signs and Compose would try
+    # to expand them. This is how glance receives GLANCE_PASSWORD_HASH.
+    env_file:
+      - .env
+    volumes:
+      - ../../config/cooklang-gateway:/etc/caddy:ro
+      - ${DOCKERCONFDIR}/cooklang-gateway/data:/data
+      - ${DOCKERCONFDIR}/cooklang-gateway/config:/config
+    ports:
+      - "9080:8080"
