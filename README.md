@@ -498,6 +498,13 @@ run of each of those checks, and the repository's pull requests, issues and comm
 of its own (`THEOBENOIT_GITHUB_TOKEN`); a dead token shows as an error line in each widget, not as an empty one.
 It only shows: what alerts is GitHub, which emails each alert issue.
 
+The same page shows who visits, read from Cloudflare Web Analytics through Cloudflare's GraphQL API, half-hourly:
+visits and page views for today and the last 7 days, the most seen pages and the main referrers. The site itself
+is not involved: no request, no script. Cloudflare counts without a cookie and samples, so these are not unique
+visitors: a visit is a page load that did not come from the site itself, not a person. The widget reads with a
+token of its own (`CLOUDFLARE_ANALYTICS_TOKEN`) that can do nothing else, and shows the day that token ends, in
+red from 14 days before; a dead token shows as an error line.
+
 ### Monitoring setup
 
 Once, on the NAS:
@@ -529,6 +536,14 @@ Once, on the NAS:
    `theobenoit-dev`, the repository `theobenoit.fr` only, read-only on Actions, Contents, Issues, Metadata and Pull
    requests. Put it in `sudo scripts/edit_env.sh infrastructure` (`THEOBENOIT_GITHUB_TOKEN`). It expires: the page
    says so when it has.
+7. The dashboard's token for the site's audience: Cloudflare, My Profile, API Tokens, Create Token, Create Custom
+   Token. One permission, Account, Account Analytics, Read; Account Resources, the site's account only; and a TTL
+   with an end date (a year at most is a good habit). Put it in `sudo scripts/edit_env.sh infrastructure`
+   (`CLOUDFLARE_ANALYTICS_TOKEN`) with `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_ANALYTICS_SITE_TAG`, both read in
+   the address of the site's Web Analytics page:
+   `dash.cloudflare.com/<account ID>/web-analytics/overview?siteTag~in=<site tag>`. The site tag is not the
+   beacon token the site's pages carry. To renew, roll the token in Cloudflare with a new end date and replace
+   the value.
 
 ## Scripts
 
