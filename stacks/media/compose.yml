@@ -292,7 +292,7 @@ services:
   # day from DSM Task Scheduler (`/usr/local/bin/docker start -a configarr`), which brings in the guides' updates.
   configarr:
     container_name: configarr
-    image: ghcr.io/raydak-labs/configarr:1.37.0
+    image: ghcr.io/raydak-labs/configarr:1.38.0
     user: "${PUID}:${PGID}"
     network_mode: host
     labels:
