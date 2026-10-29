@@ -186,7 +186,7 @@ services:
   # in config/gatus/config.yaml.
   gatus:
     container_name: gatus
-    image: twinproduction/gatus:v5.37.0
+    image: twinproduction/gatus:v5.38.0
     restart: unless-stopped
     labels:
       glance.name: "Gatus"
