@@ -29,7 +29,7 @@ services:
     restart: unless-stopped
 
   tautulli:
-    image: lscr.io/linuxserver/tautulli:v2.18.2-ls249
+    image: lscr.io/linuxserver/tautulli:v2.18.2-ls250
     labels:
       homelab.backup: "sqlite"
       glance.name: "Tautulli"
